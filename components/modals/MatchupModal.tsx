@@ -2,7 +2,7 @@
 
 import { Matchup } from "@/types";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { ConnectionCard } from "./ConnectionCard";
+import { ConnectionCard } from "@/components/cards/ConnectionCard";
 import { setPoints, setAvpaRace } from "@/lib/scoring";
 
 interface MatchupModalProps {

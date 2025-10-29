@@ -1,5 +1,6 @@
 import { SetSide } from "@/types";
 import { ConnectionCard } from "./ConnectionCard";
+import { SetStats } from "./SetStats";
 
 interface SetCardProps {
   readonly setSide: SetSide;
@@ -88,6 +89,9 @@ export function SetCard({
           />
         ))}
       </div>
+      
+      {/* Set Stats (if 2+ connections) */}
+      <SetStats setSide={setSide} />
     </div>
   );
 }

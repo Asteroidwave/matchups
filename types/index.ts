@@ -53,6 +53,7 @@ export interface Round {
   picks: RoundPick[];
   entryAmount?: number;
   winnings?: number;
+  multiplier?: number;
 }
 
 export interface TrackData {

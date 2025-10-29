@@ -19,7 +19,7 @@ interface AppContextType {
   loadData: () => Promise<void>;
   regenerateMatchups: (options?: MatchupGenerationOptions) => void;
   setTolerance: (tolerance: number) => void;
-  submitRound: (picks: RoundPick[], entryAmount: number) => void;
+  submitRound: (picks: RoundPick[], entryAmount: number, multiplier: number) => void;
   updateBankroll: (amount: number) => void;
 }
 
@@ -87,7 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [connections]);
   
-  const submitRound = useCallback((picks: RoundPick[], entryAmount: number) => {
+  const submitRound = useCallback((picks: RoundPick[], entryAmount: number, multiplierLevel: number) => {
     if (matchups.length === 0 || entryAmount <= 0 || entryAmount > bankroll) return;
     
     // Calculate winnings based on outcomes
@@ -98,10 +98,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return result.won;
     });
     
-    // Calculate multiplier with house take
-    const baseMultiplier = Math.pow(1.8, picks.length);
-    const houseTake = 0.20;
+    // Calculate multiplier with house take (28%)
+    // multiplierLevel is 0-based (0 = 2x, 1 = 4x, 2 = 8x, etc.)
+    const baseMultiplier = Math.pow(2, multiplierLevel + 1);
+    const houseTake = 0.28;
     const finalMultiplier = baseMultiplier * (1 - houseTake);
+    
+    // Regenerate matchups for next round
+    if (connections.length > 0) {
+      const newMatchups = generateMatchups(connections, {
+        count: 10,
+        tolerance,
+      });
+      setMatchups(newMatchups);
+    }
     
     const winnings = won ? entryAmount * finalMultiplier : 0;
     const netResult = winnings - entryAmount;
@@ -121,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       picks,
       entryAmount,
       winnings,
+      multiplier: finalMultiplier,
     };
     
     saveRound(round);

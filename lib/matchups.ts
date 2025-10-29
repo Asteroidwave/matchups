@@ -21,8 +21,9 @@ export function generateMatchups(
   const usedConnections = new Set<string>();
   const maxAttempts = 500;
   
-  // Filter pool to only eligible connections (min apps threshold)
-  const eligible = pool.filter(c => c.apps >= 2);
+  // Filter pool to only eligible connections (min apps threshold AND must have points)
+  // This ensures every matchup has a clear winner (no 0-0 ties)
+  const eligible = pool.filter(c => c.apps >= 2 && c.pointsSum > 0);
   
   if (eligible.length < Math.max(...sizes) * 2) {
     console.warn("Not enough eligible connections for matchup generation");
