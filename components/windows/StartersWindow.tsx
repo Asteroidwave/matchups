@@ -5,10 +5,10 @@ import { Connection, Starter } from "@/types";
 import { Card } from "@/components/ui/card";
 
 interface StartersWindowProps {
-  connections: Connection[];
-  selectedConnection: Connection | null;
-  onConnectionClick: (connection: Connection | null) => void;
-  onConnectionBoxClick?: (connection: Connection) => void;
+  readonly connections: Connection[];
+  readonly selectedConnection: Connection | null;
+  readonly onConnectionClick: (connection: Connection | null) => void;
+  readonly onConnectionBoxClick?: (connection: Connection) => void;
 }
 
 const trackColors: Record<string, { bg: string; border: string; text: string }> = {
@@ -42,11 +42,12 @@ export function StartersWindow({
       
       // Filter by selected connection if filtering
       if (selectedConnection && viewMode === "connected") {
-        if (
-          (conn.role === "jockey" && starter.jockey !== selectedConnection.name) &&
-          (conn.role === "trainer" && starter.trainer !== selectedConnection.name) &&
-          (conn.role === "sire" && starter.sire1 !== selectedConnection.name && starter.sire2 !== selectedConnection.name)
-        ) {
+        const matchesConnection = 
+          (conn.role === "jockey" && starter.jockey === selectedConnection.name) ||
+          (conn.role === "trainer" && starter.trainer === selectedConnection.name) ||
+          (conn.role === "sire" && (starter.sire1 === selectedConnection.name || starter.sire2 === selectedConnection.name));
+        
+        if (!matchesConnection) {
           continue;
         }
       }
@@ -74,7 +75,7 @@ export function StartersWindow({
     const [trackB, raceB] = b.split("-");
     const trackOrder = ["BAQ", "GP", "KEE", "SA"];
     const trackDiff = trackOrder.indexOf(trackA) - trackOrder.indexOf(trackB);
-    return trackDiff !== 0 ? trackDiff : parseInt(raceA) - parseInt(raceB);
+    return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
   });
   
   const getPlaceColor = (place?: number) => {
@@ -192,9 +193,9 @@ export function StartersWindow({
               </div>
               
               <div className="space-y-1.5">
-                {Array.from(uniqueHorses.values()).map((starter, idx) => (
+                {Array.from(uniqueHorses.values()).map((starter) => (
                   <div
-                    key={idx}
+                    key={`${starter.track}-${starter.race}-${starter.horseName}`}
                     className="flex items-center gap-2 bg-white rounded p-2 border border-gray-200 hover:shadow-sm"
                   >
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs ${getPlaceColor(starter.pos)}`}>
@@ -207,6 +208,8 @@ export function StartersWindow({
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         {starter.jockey && (
                           <span
+                            role="button"
+                            tabIndex={0}
                             className="text-blue-600 hover:text-blue-800 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -219,12 +222,28 @@ export function StartersWindow({
                                 }
                               }
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const conn = connections.find(c => c.name === starter.jockey && c.role === "jockey");
+                                if (conn) {
+                                  if (onConnectionBoxClick) {
+                                    onConnectionBoxClick(conn);
+                                  } else {
+                                    onConnectionClick(conn);
+                                  }
+                                }
+                              }
+                            }}
                           >
                             J: <span className="font-medium">{starter.jockey}</span>
                           </span>
                         )}
                         {starter.trainer && (
                           <span
+                            role="button"
+                            tabIndex={0}
                             className="text-green-600 hover:text-green-800 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -237,12 +256,28 @@ export function StartersWindow({
                                 }
                               }
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const conn = connections.find(c => c.name === starter.trainer && c.role === "trainer");
+                                if (conn) {
+                                  if (onConnectionBoxClick) {
+                                    onConnectionBoxClick(conn);
+                                  } else {
+                                    onConnectionClick(conn);
+                                  }
+                                }
+                              }
+                            }}
                           >
                             T: <span className="font-medium">{starter.trainer}</span>
                           </span>
                         )}
                         {(starter.sire1 || starter.sire2) && (
                           <span
+                            role="button"
+                            tabIndex={0}
                             className="text-amber-600 hover:text-amber-800 cursor-pointer"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -254,6 +289,22 @@ export function StartersWindow({
                                   onConnectionBoxClick(conn);
                                 } else {
                                   onConnectionClick(conn);
+                                }
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const conn = connections.find(c => 
+                                  (c.name === starter.sire1 || c.name === starter.sire2) && c.role === "sire"
+                                );
+                                if (conn) {
+                                  if (onConnectionBoxClick) {
+                                    onConnectionBoxClick(conn);
+                                  } else {
+                                    onConnectionClick(conn);
+                                  }
                                 }
                               }
                             }}
