@@ -2,6 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Figma tokens mapped to CSS variables */
+:root {
+  --text-primary: #080F17;
+  --text-tertiary: #3c5066;
+  --blue-50: #E6F0FF;
+  --brand: #094AAC;
+  --content-15: #DFE0E2; /* borders / dividers */
+  --content-16: #E7E8E9; /* subtle borders */
+  --content-9: #677a8f; /* muted text color */
+  --btn-link: #0065FF; /* link/button accent */
+  --btn-default: #080F17; /* dark action */
+  --surface-3: #DFE0E2;
+  --chip-outline: #DFE0E2;
+  --surface-1: #FFFFFF;
+}
+
+html {
+  height: 100%;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+  scroll-behavior: auto;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--surface-1);
+  height: 100%;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: auto;
+  /* Reduce vertical scroll by 60% - tighter scrolling */
+  scroll-snap-type: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding: 0;
+  scroll-margin: 0;
+}
+
+/* Make scrolling 60% tighter - reduce scroll distance */
+* {
+  scroll-behavior: auto;
+}
+
+/* Reduce elastic scrolling by making containers more rigid */
+.scroll-container {
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;

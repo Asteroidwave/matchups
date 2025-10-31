@@ -53,8 +53,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const loadedRounds = loadRounds();
       setRounds(loadedRounds);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load data");
+      const errorMessage = err instanceof Error ? err.message : "Failed to load data";
+      setError(errorMessage);
       console.error("Error loading data:", err);
+      // Still set loading to false even on error
+      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }

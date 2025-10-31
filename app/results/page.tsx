@@ -11,11 +11,11 @@ import { RaceDetailModal } from "@/components/modals/RaceDetailModal";
 import { CompareModal } from "@/components/modals/CompareModal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronDown, ChevronRight, GitCompare } from "lucide-react";
+import { ChevronRight, ChevronDown } from "lucide-react";
 
 export default function ResultsPage() {
   const router = useRouter();
-  const { rounds, bankroll, connections } = useApp();
+  const { rounds, bankroll, connections, regenerateMatchups, tolerance } = useApp();
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
   const [selectedPick, setSelectedPick] = useState<{
     matchup: Matchup;
@@ -148,10 +148,14 @@ export default function ResultsPage() {
               <div className="text-xl font-bold text-gray-900">${bankroll.toFixed(2)}</div>
             </div>
           <Button
-            onClick={() => router.push("/matchups")}
-              className="bg-gray-900 hover:bg-gray-800 text-white"
+            onClick={() => {
+              sessionStorage.setItem('fromResults', 'true');
+              regenerateMatchups({ tolerance });
+              router.push("/matchups");
+            }}
+            className="bg-gray-900 hover:bg-gray-800 text-white"
           >
-              New Round
+            New Round
           </Button>
         </div>
         </div>
@@ -170,35 +174,38 @@ export default function ResultsPage() {
           <div className="space-y-2">
             {rounds.map((round) => {
               const results = getRoundResults(round);
-              const isExpanded = expandedRounds.has(round.id);
               const netColor = results.netResult >= 0 ? "text-green-600" : "text-red-600";
-              const roundConnections = getRoundConnections(round);
+              const isExpanded = expandedRounds.has(round.id);
               
               return (
                 <Card key={round.id} className="bg-white border border-gray-200">
+                  {/* Round Summary Header - Always Visible */}
                   <div
                     className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => toggleRound(round.id)}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1">
-                        {/* Pick Count */}
-                        <div className="font-semibold text-gray-900">
-                          {results.picksCount} Pick{results.picksCount !== 1 ? "s" : ""}
-                          {results.entryAmount > 0 && (
-                            <span className="text-gray-500 font-normal ml-1">
-                              for ${results.entryAmount.toFixed(2)}
-                            </span>
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        {/* Pick Count and Amount - Stacked */}
+                        <div className="flex-shrink-0">
+                          <div className="font-semibold text-gray-900">
+                            {results.picksCount} Pick{results.picksCount !== 1 ? "s" : ""}
+                          </div>
+                          <div className="font-semibold text-gray-900">
+                            ${results.entryAmount.toFixed(2)}
+                          </div>
+                        </div>
+                        {/* Connection Names - Limited to 3 */}
+                        <div className="text-sm text-gray-600 min-w-0 flex-shrink">
+                          {results.connectionNames.slice(0, 3).join(", ")}
+                          {results.connectionNames.length > 3 && (
+                            <span className="text-gray-500"> +{results.connectionNames.length - 3}</span>
                           )}
                         </div>
-                        
-                        {/* Connection Names */}
-                        <div className="flex-1 text-sm text-gray-700">
-                          {results.connectionNames.slice(0, 5).join(", ")}
-                          {results.connectionNames.length > 5 && ` +${results.connectionNames.length - 5} more`}
-                        </div>
-                        
-                        {/* Individual Results */}
+                      </div>
+                      {/* Fixed Right Section */}
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        {/* Individual Result Indicators - Fixed Position */}
                         <div className="flex items-center gap-1">
                           {results.individualResults.map((result, idx) => (
                             <div
@@ -213,42 +220,9 @@ export default function ResultsPage() {
                             </div>
                           ))}
                         </div>
-                        
-                        {/* Compare Button */}
-                        {roundConnections.length >= 2 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCompareConnections({
-                                conn1: roundConnections[0],
-                                conn2: roundConnections[1],
-                              });
-                            }}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Compare connections"
-                            type="button"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                setCompareConnections({
-                                  conn1: roundConnections[0],
-                                  conn2: roundConnections[1],
-                                });
-                              }
-                            }}
-                          >
-                            <GitCompare className="w-4 h-4 text-gray-400" />
-                          </button>
-                        )}
-                        
-                        {/* Net Result */}
-                        <div className={`font-bold ${netColor}`}>
+                        <div className={`font-bold text-lg ${netColor}`}>
                           {results.netResult >= 0 ? "Won" : "Lost"} ${Math.abs(results.netResult).toFixed(2)}
                         </div>
-                      </div>
-                      
-                      {/* Expand Icon */}
-                      <div className="ml-4">
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-gray-400" />
                         ) : (
@@ -258,156 +232,57 @@ export default function ResultsPage() {
                     </div>
                   </div>
                   
-                  {/* Expanded Content */}
+                  {/* Expanded Individual Pick Cards */}
                   {isExpanded && (
-                    <div className="border-t border-gray-200 p-4 bg-gray-50">
-            <div className="space-y-3">
-                        {round.picks.map((pick) => {
-                          const idx = round.picks.indexOf(pick);
-                          const result = results.individualResults[idx];
-                          const matchup = round.matchups.find(m => m.id === pick.matchupId);
-                          
-                          if (!matchup) return null;
-                          
-                          const chosenSet = pick.chosen === "A" ? matchup.setA : matchup.setB;
-                          
-                          return (
-                            <div
-                              key={pick.matchupId}
-                              className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow"
-                            >
-                              <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div
-                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                                      result.won
-                                        ? "bg-green-500 text-white"
-                                        : "bg-red-500 text-white"
-                                    }`}
-                                  >
-                                    {result.won ? "✓" : "✗"}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900 mb-2">
-                                      Pick {idx + 1}: Set {pick.chosen}
-                                    </div>
-                                  </div>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setSelectedPick({ matchup, chosen: pick.chosen })}
-                                >
-                                  View Matchup
-                                </Button>
+                    <div className="border-t border-gray-200 p-4 space-y-3">
+                      {round.picks.map((pick, idx) => {
+                        const result = results.individualResults[idx];
+                        const matchup = round.matchups.find(m => m.id === pick.matchupId);
+                        
+                        if (!matchup) return null;
+                        
+                        const chosenSet = pick.chosen === "A" ? matchup.setA : matchup.setB;
+                        const setPoints = chosenSet.connections.reduce((sum, c) => sum + c.pointsSum, 0);
+                        const primaryName = chosenSet.connections[0]?.name || "Unknown";
+                        
+                        return (
+                          <div
+                            key={pick.matchupId}
+                            className="bg-gray-50 rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-4 flex-1">
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                                  result.won
+                                    ? "bg-green-500 text-white"
+                                    : "bg-red-500 text-white"
+                                }`}
+                              >
+                                {result.won ? "✓" : "✗"}
                               </div>
-                              
-                              {/* Connections with Points & AVPA inline */}
-                              <div className="space-y-2">
-                                {chosenSet.connections.map((conn) => {
-                                  const connection = connections.find(c => c.id === conn.id);
-                                  const topFinishes = connection
-                                    ? connection.starters.filter(s => s.pos && s.pos >= 1 && s.pos <= 3)
-                                    : [];
-                                  
-                                  return (
-                                    <div
-                                      key={conn.id}
-                                      className="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-                                    >
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-3 flex-1">
-                                          <div className="font-semibold text-gray-900">
-                                            {conn.name}
-                                          </div>
-                                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                            (() => {
-                                              if (conn.role === "jockey") return "bg-blue-100 text-blue-800";
-                                              if (conn.role === "trainer") return "bg-green-100 text-green-800";
-                                              return "bg-amber-100 text-amber-800";
-                                            })()
-                                          }`}>
-                                            {conn.role}
-                                          </span>
-                                          <span className="text-xs text-gray-600">
-                                            {conn.trackSet.join(", ")}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-sm">
-                                          <div>
-                                            <span className="text-gray-500">Points:</span>{" "}
-                                            <span className="font-bold text-gray-900">{conn.pointsSum.toFixed(1)}</span>
-                                          </div>
-                                          <div>
-                                            <span className="text-gray-500">AVPA (Race):</span>{" "}
-                                            <span className="font-bold text-gray-900">{conn.avpaRace.toFixed(1)}</span>
-                                          </div>
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleConnectionClick(conn.id)}
-                                          >
-                                            View Details
-                                          </Button>
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Top Finishes - Clickable Races */}
-                                      {topFinishes.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t border-gray-200">
-                                          <div className="text-xs text-gray-500 mb-1">Top Finishes (click to view race):</div>
-                                          <div className="flex flex-wrap gap-1">
-                                            {topFinishes.slice(0, 5).map((starter) => (
-                                              <button
-                                                key={`${starter.track}-${starter.race}-${starter.horseName}`}
-                                                onClick={() => handleRaceClick(starter.track, starter.race)}
-                                                className="text-xs px-2 py-1 rounded bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer"
-                                                title={`View ${starter.track} Race ${starter.race} details`}
-                                              >
-                                                {starter.horseName} - {starter.track} R{starter.race} ({starter.pos}st)
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              
-                              {/* Stats Row */}
-                              <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                  <div className="text-gray-500">Apps</div>
-                                  <div className="font-medium text-gray-900">
-                                    {chosenSet.connections.reduce((sum, c) => sum + c.apps, 0)}
-                                  </div>
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 mb-1">
+                                  Pick {idx + 1}: {primaryName}
                                 </div>
-                                <div>
-                                  <div className="text-gray-500">Avg Odds</div>
-                                  <div className="font-medium text-gray-900">
-                                    {(() => {
-                                      const totalOdds = chosenSet.connections.reduce((sum, c) => sum + (c.avgOdds * c.apps), 0);
-                                      const totalApps = chosenSet.connections.reduce((sum, c) => sum + c.apps, 0);
-                                      return totalApps > 0 ? (totalOdds / totalApps).toFixed(1) : "—";
-                                    })()}
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-gray-500">AVPA (30D)</div>
-                                  <div className="font-medium text-gray-900">
-                                    {(() => {
-                                      const totalAvpa = chosenSet.connections.reduce((sum, c) => sum + (c.avpa30d * c.apps), 0);
-                                      const totalApps = chosenSet.connections.reduce((sum, c) => sum + c.apps, 0);
-                                      return totalApps > 0 ? (totalAvpa / totalApps).toFixed(1) : "—";
-                                    })()}
-                                  </div>
+                                <div className="text-sm text-gray-600">
+                                  Set {pick.chosen} • {setPoints.toFixed(1)} pts
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPick({ matchup, chosen: pick.chosen });
+                              }}
+                              className="text-[var(--btn-link)]"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </Card>
@@ -419,7 +294,7 @@ export default function ResultsPage() {
 
       {/* Modals */}
       {selectedPick && (
-      <MatchupModal
+        <MatchupModal
           matchup={selectedPick.matchup}
           selectedSet={selectedPick.chosen}
           isOpen={!!selectedPick}

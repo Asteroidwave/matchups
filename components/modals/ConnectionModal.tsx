@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Connection, Starter } from "@/types";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { X, ChevronDown, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { X } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
 
 interface ConnectionModalProps {
   connection: Connection | null;
@@ -66,11 +67,11 @@ function generatePastPerformance(connection: Connection): PastPerformance[] {
         race,
         horse: `Horse ${i + 1}-${j + 1}`,
         position,
-        points: parseFloat(points),
+        points: Number.parseFloat(points),
         odds,
       });
       
-      totalPoints += parseFloat(points);
+      totalPoints += Number.parseFloat(points);
       totalSalary += salary;
     }
     
@@ -98,14 +99,14 @@ const trackColors: Record<string, { bg: string; border: string }> = {
 };
 
 export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModalProps) {
-  const [activeTab, setActiveTab] = useState<"connected" | "scratch" | "past">("connected");
-  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<"connected" | "past">("connected");
+  const { connections: allConnections } = useApp();
   
   if (!connection) return null;
   
   const pastPerformance = generatePastPerformance(connection);
   
-  // Group starters by race for "Connected Horses" tab
+  // Group starters by track and race for "Connected Horses" tab
   const racesMap = new Map<string, Starter[]>();
   
   for (const starter of connection.starters) {
@@ -118,15 +119,25 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
     racesMap.get(key)!.push(starter);
   }
   
+  // Sort by track then by race
   const races = Array.from(racesMap.entries()).sort(([a], [b]) => {
     const [trackA, raceA] = a.split("-");
     const [trackB, raceB] = b.split("-");
     const trackOrder = ["BAQ", "GP", "KEE", "SA"];
     const trackDiff = trackOrder.indexOf(trackA) - trackOrder.indexOf(trackB);
-    return trackDiff !== 0 ? trackDiff : parseInt(raceA) - parseInt(raceB);
+    return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
   });
   
-  const roleColor = {
+  // Track full names mapping
+  const trackFullName: Record<string, string> = {
+    BAQ: "Belmont",
+    GP: "Gulfstream Park",
+    KEE: "Keeneland",
+    SA: "Santa Anita",
+  };
+  
+  // Background color for the header based on role (single color)
+  const headerBg = {
     jockey: "bg-blue-600",
     trainer: "bg-green-600",
     sire: "bg-amber-600",
@@ -139,249 +150,333 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
     if (place === 3) return "bg-red-500 text-white";
     return "bg-gray-400 text-white";
   };
+
+  // Calculate post positions for starters (EXACT same logic as StartersWindow)
+  // We need ALL starters from ALL connections to get the correct post positions
+  const postPositionsMap = new Map<string, Map<string, number>>();
   
-  const toggleDate = (date: string) => {
-    setExpandedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(date)) {
-        next.delete(date);
-      } else {
-        next.add(date);
-      }
-      return next;
-    });
+  // Build all starters array in the EXACT same way as StartersWindow (preserving order)
+  const allStartersList: Starter[] = [];
+  for (const conn of allConnections) {
+    for (const starter of conn.starters) {
+      if (starter.scratched) continue;
+      allStartersList.push(starter);
+    }
+  }
+  
+  // Group by race (preserving order from allStartersList)
+  const allRacesMap = new Map<string, Starter[]>();
+  for (const starter of allStartersList) {
+    const raceKey = `${starter.track}-${starter.race}`;
+    if (!allRacesMap.has(raceKey)) {
+      allRacesMap.set(raceKey, []);
+    }
+    allRacesMap.get(raceKey)!.push(starter);
+  }
+  
+  // Assign post positions within each race (EXACT same logic as StartersWindow)
+  for (const [raceKey, raceStarters] of Array.from(allRacesMap.entries())) {
+    // Keep first-seen order within the race and assign posts sequentially 1..N
+    // This matches StartersWindow lines 98-110 exactly
+    const seen = new Set<string>();
+    const ordered: Starter[] = [];
+    for (const s of raceStarters) {
+      if (seen.has(s.horseName)) continue;
+      seen.add(s.horseName);
+      ordered.push(s);
+    }
+    
+    const racePostMap = new Map<string, number>();
+    let post = 1;
+    for (const s of ordered) {
+      const horseKey = `${s.track}-${s.race}-${s.horseName}`;
+      racePostMap.set(horseKey, post++);
+    }
+    postPositionsMap.set(raceKey, racePostMap);
+  }
+  
+  const getPostBadge = (post?: number) => {
+    if (!post) return "bg-gray-300 text-gray-700";
+    const palette = ["bg-green-500", "bg-blue-500", "bg-red-500", "bg-amber-500", "bg-purple-500", "bg-teal-500"];
+    const color = palette[(post - 1) % palette.length];
+    return `${color} text-white`;
   };
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Header */}
-        <div className={`${roleColor} text-white p-6 relative`}>
+      <DialogContent className="max-w-[880px] max-h-[90vh] p-0 flex flex-col">
+        {/* Header - Single color design with overlapping circle */}
+        <div className={`relative h-[162px] ${headerBg} text-white`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+            className="absolute top-5 right-4 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
           >
             <X className="w-5 h-5" />
           </button>
           
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
-              {connection.name.charAt(0)}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">{connection.name}</h2>
-              <div className="text-white/90">{connection.role.toUpperCase()}</div>
+          {/* Name and role section */}
+          <div className="pt-[44px] px-6 pb-4">
+            <div className="pl-[172px] flex items-center gap-3 h-[28px]">
+              <h2 className="text-[20px] font-semibold leading-[28px]">{connection.name}</h2>
+              <div className="text-[14px] font-medium leading-[20px] text-white/80">{connection.role.toUpperCase()}</div>
             </div>
           </div>
           
-          <div className="grid grid-cols-4 gap-4 text-sm">
-            <div>
-              <div className="text-white/80">Avg Odds</div>
-              <div className="text-xl font-bold">{connection.avgOdds.toFixed(2)}</div>
+          {/* Stats section */}
+          <div className="px-6 pb-5 pt-4">
+            <div className="pl-[172px] flex items-end gap-[34px] h-full pb-4">
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{connection.avgOdds.toFixed(2)}</div>
+                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVG. ODDS</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{String(connection.apps).padStart(2, '0')}</div>
+                <div className="text-[12px] font-medium leading-[18px] text-white/80">APPEARANCES</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
+                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVPA</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
+                <div className="text-[12px] font-medium leading-[18px] text-white/80">SALARY</div>
+              </div>
             </div>
-            <div>
-              <div className="text-white/80">Appearances</div>
-              <div className="text-xl font-bold">{connection.apps}</div>
-            </div>
-            <div>
-              <div className="text-white/80">AVPA</div>
-              <div className="text-xl font-bold">{connection.avpa30d.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-white/80">Salary</div>
-              <div className="text-xl font-bold">${connection.salarySum.toLocaleString()}</div>
-            </div>
+          </div>
+          
+          {/* Circle avatar overlapping header */}
+          <div className="absolute left-[34px] top-[34px] w-[108px] h-[108px] rounded-full bg-[var(--content-15)] flex items-center justify-center text-[64px] font-semibold leading-normal text-[var(--content-9)] z-20">
+            {connection.name.charAt(0)}
           </div>
         </div>
         
         {/* Tabs */}
-        <div className="border-b border-gray-200 flex">
+        <div className="bg-[var(--surface-1)] border-b border-[var(--content-16)] flex items-end px-5 pt-2 h-12">
           <button
             onClick={() => setActiveTab("connected")}
-            className={`px-6 py-3 font-medium text-sm transition-colors relative ${
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
               activeTab === "connected"
-                ? "text-gray-900"
+                ? "text-[var(--text-primary)]"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            Connected Horses
+            <span>Connected Horses</span>
             {activeTab === "connected" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("scratch")}
-            className={`px-6 py-3 font-medium text-sm transition-colors relative ${
-              activeTab === "scratch"
-                ? "text-gray-900"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Scratch Adjustment
-            {activeTab === "scratch" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
           </button>
           <button
             onClick={() => setActiveTab("past")}
-            className={`px-6 py-3 font-medium text-sm transition-colors relative ${
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
               activeTab === "past"
-                ? "text-gray-900"
+                ? "text-[var(--text-primary)]"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            Past Performance
+            <span>Past Performance</span>
             {activeTab === "past" && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
           </button>
         </div>
         
-        {/* Content */}
-        <div className="p-6">
+        {/* Content - Fixed height to prevent jumping */}
+        <div className="overflow-y-auto" style={{ height: '500px' }}>
           {activeTab === "connected" && (
-            <>
-              <h3 className="text-xl font-bold mb-4">Connected Horses</h3>
-              
-              <div className="space-y-4">
-                {races.map(([key, starters]) => {
-                  const [track, raceNum] = key.split("-");
-                  const trackColor = trackColors[track] || { bg: "bg-gray-500/10", border: "border-gray-500" };
-                  
-                  return (
-                    <div
-                      key={key}
-                      className={`border-2 rounded-lg p-4 ${trackColor.border} ${trackColor.bg}`}
-                    >
-                      <div className="font-semibold text-sm text-gray-600 mb-3">
-                        {track} - Race {raceNum}
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                {/* Table Header - Sticky (matching Figma table-header) */}
+                <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
+                  <tr>
+                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-0 pt-2 text-left">
+                      <div className="flex items-center">
+                        <div className="flex flex-col gap-2 w-[140px]">
+                          <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
+                        </div>
+                        <div className="flex flex-col flex-1 ml-[144px]">
+                          <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Connections</p>
+                        </div>
                       </div>
-                      
-                      <div className="space-y-2">
-                        {starters.map((starter, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${getPlaceColor(starter.pos)}`}
-                              >
-                                {starter.pos || "—"}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-gray-900">{starter.horseName}</div>
-                                <div className="text-xs text-gray-500">
-                                  {starter.mlOddsFrac || "N/A"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {races.map(([key, starters]) => {
+                    const [track, raceNum] = key.split("-");
+                    const trackName = trackFullName[track] || track;
+                    
+                    return (
+                      <React.Fragment key={key}>
+                        {/* Div.rack.track.group.component - Race Header (gray band) */}
+                        <tr className="bg-[var(--content-15)]">
+                          <td colSpan={2} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                            October 3, 2025, {trackName}, Race {raceNum}
+                          </td>
+                        </tr>
+                        
+                        {/* Horse rows for this race - table-header style */}
+                        {starters.map((starter, idx) => {
+                          // Get post position for this starter
+                          const raceKey = `${starter.track}-${starter.race}`;
+                          const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
+                          const racePostMap = postPositionsMap.get(raceKey);
+                          const post = racePostMap?.get(horseKey);
+                          
+                          return (
+                            <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
+                              {/* Horse Column - div.top style (140px width matching Figma) */}
+                              <td className="w-[140px] py-3 pl-5 pr-0 align-top">
+                                <div className="flex flex-col gap-2">
+                                  {/* PP and Odds */}
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] ${
+                                      post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
+                                    }`}>
+                                      {post || "—"}
+                                    </span>
+                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                      {starter.mlOddsFrac || "—"}
+                                    </span>
+                                  </div>
+                                  {/* Horse Name */}
+                                  <div>
+                                    <div className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                      {starter.horseName}
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                            
-                            {/* Connections */}
-                            <div className="flex items-center gap-2">
-                              {starter.jockey && (
-                                <div className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                  J: {starter.jockey}
+                              </td>
+                              {/* Connections Column - Frame style with 144px gap from horse column */}
+                              <td className="flex-1 pl-[144px] align-top">
+                                <div className="flex flex-col">
+                                  {/* Top row: Jockey and Trainer */}
+                                  <div className="flex border-b border-[var(--content-15)]">
+                                    <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
+                                      connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    }`}>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
+                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                        {starter.jockey || "—"}
+                                      </span>
+                                    </div>
+                                    <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
+                                      connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    }`}>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
+                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                        {starter.trainer || "—"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {/* Bottom row: Sire 1 and Sire 2 */}
+                                  <div className="flex">
+                                    <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
+                                      connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    }`}>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                        {starter.sire1 || "—"}
+                                      </span>
+                                    </div>
+                                    <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
+                                      connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    }`}>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                        {starter.sire2 || "—"}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                              {starter.trainer && (
-                                <div className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
-                                  T: {starter.trainer}
-                                </div>
-                              )}
-                              {(starter.sire1 || starter.sire2) && (
-                                <div className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-xs font-medium">
-                                  S: {starter.sire1 || starter.sire2}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-          
-          {activeTab === "scratch" && (
-            <div className="text-center py-8 text-gray-500">
-              Scratch adjustment data coming soon
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
           
           {activeTab === "past" && (
-            <>
-              <h3 className="text-xl font-bold mb-4">Past Performance</h3>
-              
-              <div className="space-y-4">
-                {pastPerformance.map((perf, idx) => {
-                  const isExpanded = expandedDates.has(perf.date);
-                  
-                  return (
-                    <div key={idx} className="border border-gray-200 rounded-lg">
-                      <div
-                        className="p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
-                        onClick={() => toggleDate(perf.date)}
-                      >
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-600" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-600" />
-                          )}
-                          <div className="font-semibold text-gray-900">{perf.date} {perf.track}</div>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm">
-                          <div>
-                            <span className="text-gray-500">Salary:</span>{" "}
-                            <span className="font-semibold">${perf.summary.salary.toLocaleString()}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Apps:</span>{" "}
-                            <span className="font-semibold">{perf.summary.appearances}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">AVPA:</span>{" "}
-                            <span className="font-semibold">{perf.summary.avpa.toFixed(2)}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Score:</span>{" "}
-                            <span className="font-semibold">{perf.summary.score.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-white border-b border-[var(--content-15)]">
+                  <tr>
+                    <th className="text-left py-2 px-4 font-semibold text-gray-700">Race</th>
+                    <th className="text-left py-2 px-4 font-semibold text-gray-700">Horse</th>
+                    <th className="text-left py-2 px-4 font-semibold text-gray-700">Finish Position</th>
+                    <th className="text-right py-2 px-4 font-semibold text-gray-700">Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Group by track/date for separators
+                    const grouped = new Map<string, Array<{ perf: PastPerformance; raceIdx: number; race: typeof pastPerformance[0]['races'][0] }>>();
+                    
+                    pastPerformance.forEach((perf, perfIdx) => {
+                      perf.races.forEach((race, raceIdx) => {
+                        const key = `${perf.date}-${perf.track}`;
+                        if (!grouped.has(key)) {
+                          grouped.set(key, []);
+                        }
+                        grouped.get(key)!.push({ perf, raceIdx, race });
+                      });
+                    });
+                    
+                    const result: JSX.Element[] = [];
+                    const entries = Array.from(grouped.entries());
+                    
+                    entries.forEach(([key, races], groupIdx) => {
+                      const [date, track] = key.split('-');
+                      const trackName = trackFullName[track] || track;
                       
-                      {isExpanded && (
-                        <div className="p-4 border-t border-gray-200">
-                          <div className="space-y-2">
-                            {perf.races.map((race, raceIdx) => (
-                              <div
-                                key={raceIdx}
-                                className="grid grid-cols-4 gap-4 p-2 bg-white rounded border border-gray-100 hover:bg-gray-50"
-                              >
-                                <div className="font-medium text-gray-900">Race {race.race}</div>
-                                <div className="text-gray-700">{race.horse}</div>
-                                <div>
-                                  <span className={`px-2 py-1 rounded text-xs font-bold ${getPlaceColor(race.position)}`}>
-                                    {race.position === 0 ? "—" : `${race.position}st`}
-                                  </span>
-                                </div>
-                                <div className="text-right font-semibold text-gray-900">
-                                  {race.points.toFixed(2)} pts
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+                      // Add separator/header (except for first)
+                      if (groupIdx > 0) {
+                        result.push(
+                          <tr key={`separator-${key}`} className="bg-gray-100">
+                            <td colSpan={4} className="py-1 px-4">
+                              <div className="h-px bg-gray-300"></div>
+                            </td>
+                          </tr>
+                        );
+                      }
+                      
+                      // Add track header
+                      result.push(
+                        <tr key={`header-${key}`} className="bg-[var(--content-15)]">
+                          <td colSpan={4} className="py-1 px-4 text-[12px] font-medium text-[var(--text-primary)]">
+                            {date}, {trackName}
+                          </td>
+                        </tr>
+                      );
+                      
+                      // Add race rows
+                      races.forEach(({ race, raceIdx }, idx) => {
+                        result.push(
+                          <tr key={`${key}-${raceIdx}`} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-2 px-4 text-gray-900">Race {race.race}</td>
+                            <td className="py-2 px-4 text-gray-700">{race.horse}</td>
+                            <td className="py-2 px-4">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPlaceColor(race.position)}`}>
+                                {race.position === 0 ? "—" : race.position}
+                              </span>
+                            </td>
+                            <td className="py-2 px-4 text-right font-semibold text-gray-900">
+                              {race.points.toFixed(1) || 0}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    });
+                    
+                    return result;
+                  })()}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </DialogContent>

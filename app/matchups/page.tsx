@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { MatchupCard } from "@/components/cards/MatchupCard";
 import { ConnectionModal } from "@/components/modals/ConnectionModal";
+import { ComparisonModal } from "@/components/modals/ComparisonModal";
 import { StartersWindow } from "@/components/windows/StartersWindow";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
-import { RoundPick, Connection } from "@/types";
+import { RoundPick, Connection, Matchup } from "@/types";
 import { X, Settings, Info } from "lucide-react";
 
 export default function MatchupsPage() {
@@ -30,9 +30,22 @@ export default function MatchupsPage() {
   const [selections, setSelections] = useState<Record<string, "A" | "B">>({});
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [filteredConnection, setFilteredConnection] = useState<Connection | null>(null);
+  const [highlightedConnectionId, setHighlightedConnectionId] = useState<string | null>(null);
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+  const [selectedMatchupForComparison, setSelectedMatchupForComparison] = useState<Matchup | null>(null);
   const [entryAmount, setEntryAmount] = useState<string>("");
-  const [multiplier, setMultiplier] = useState<number>(1);
+  const [isFlex, setIsFlex] = useState<boolean>(false);
+  
+  // Auto-reload matchups when navigating from results page
+  useEffect(() => {
+    // Check if we're coming from results page (via sessionStorage or router state)
+    const fromResults = sessionStorage.getItem('fromResults');
+    if (fromResults === 'true') {
+      regenerateMatchups({ tolerance });
+      sessionStorage.removeItem('fromResults');
+    }
+  }, [regenerateMatchups, tolerance]);
   
   const handleSelect = (matchupId: string, side: "A" | "B") => {
     setSelections((prev) => {
@@ -48,6 +61,10 @@ export default function MatchupsPage() {
   
   const handleConnectionClick = (connection: Connection | null) => {
     setFilteredConnection(connection);
+    // Clear highlighted connection when clearing filter
+    if (!connection) {
+      setHighlightedConnectionId(null);
+    }
   };
   
   const handleConnectionBoxClick = (connection: Connection | string) => {
@@ -57,6 +74,69 @@ export default function MatchupsPage() {
     if (conn) {
       setSelectedConnection(conn);
       setIsConnectionModalOpen(true);
+    }
+  };
+  
+  const handleConnectionNameClick = (connectionId: string) => {
+    const conn = connections.find(c => c.id === connectionId);
+    if (conn) {
+      // If clicking the same connection that's already filtered, clear it (toggle off)
+      // This will return to the previous view (either default horses or connected horses)
+      // Otherwise, set it as the new filter (overrides current filter)
+      // This will filter the starters panel to show only horses with this connection
+      if (filteredConnection?.id === connectionId) {
+        setFilteredConnection(null);
+        setHighlightedConnectionId(null);
+      } else {
+        setFilteredConnection(conn);
+        setHighlightedConnectionId(connectionId);
+      }
+    }
+  };
+  
+  // Find matchup containing a specific connection
+  const findMatchupForConnection = (connectionId: string) => {
+    return matchups.findIndex(m => 
+      m.setA.connections.some(c => c.id === connectionId) ||
+      m.setB.connections.some(c => c.id === connectionId)
+    );
+  };
+  
+  // Scroll to matchup containing a connection
+  // If fromConnectedHorsesView is true, only highlight in players panel, don't filter starters
+  const scrollToMatchupForConnection = (connectionId: string, fromConnectedHorsesView: boolean = false) => {
+    const conn = connections.find(c => c.id === connectionId);
+    if (!conn) return;
+    
+    if (fromConnectedHorsesView) {
+      // When clicking from Connected Horses view, only highlight in players panel, don't filter starters
+      setHighlightedConnectionId(connectionId);
+      // Clear filtered connection to ensure starters panel doesn't filter
+      setFilteredConnection(null);
+    } else {
+      // Normal behavior: filter starters panel
+      // If clicking the same connection that's already filtered, clear it (toggle off)
+      if (filteredConnection?.id === connectionId) {
+        setFilteredConnection(null);
+        setHighlightedConnectionId(null);
+        return;
+      }
+      
+      // Otherwise, set it as filtered (to highlight it in players panel AND filter starters)
+      setFilteredConnection(conn);
+      setHighlightedConnectionId(connectionId);
+    }
+    
+    // Scroll to the matchup
+    const matchupIndex = findMatchupForConnection(connectionId);
+    if (matchupIndex >= 0) {
+      // Small delay to ensure the highlight renders first
+      setTimeout(() => {
+        const matchupElement = document.querySelector(`[data-matchup-id="${matchups[matchupIndex].id}"]`);
+        if (matchupElement) {
+          matchupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
     }
   };
   
@@ -91,22 +171,35 @@ export default function MatchupsPage() {
       return;
     }
     
-    submitRound(picks, amount, multiplier);
+    submitRound(picks, amount, computedMultiplier);
     setSelections({});
     setEntryAmount("");
     router.push("/results");
   };
   
-  const calculateFinalMultiplier = (selectedMultiplier: number) => {
-    const baseMultiplier = Math.pow(2, selectedMultiplier + 1);
-    const houseTake = 0.28;
-    return baseMultiplier * (1 - houseTake);
+  // Industry-standard multiplier schedule (DraftKings/Underdog style)
+  // Standard: All picks must win
+  // Flex: Lower payout if all win, but allows one miss (with reduced payout)
+  const multiplierSchedule: Record<number, { standard: number; flexAllWin: number; flexOneMiss: number }> = {
+    2: { standard: 3.5, flexAllWin: 2.1, flexOneMiss: 1.0 },
+    3: { standard: 6.5, flexAllWin: 3.9, flexOneMiss: 2.0 },
+    4: { standard: 13.0, flexAllWin: 7.8, flexOneMiss: 3.5 },
+    5: { standard: 25.0, flexAllWin: 15.0, flexOneMiss: 6.5 },
+    6: { standard: 50.0, flexAllWin: 30.0, flexOneMiss: 13.0 },
+    7: { standard: 100.0, flexAllWin: 60.0, flexOneMiss: 25.0 },
+    8: { standard: 200.0, flexAllWin: 120.0, flexOneMiss: 50.0 },
+    9: { standard: 400.0, flexAllWin: 240.0, flexOneMiss: 100.0 },
+    10: { standard: 800.0, flexAllWin: 480.0, flexOneMiss: 200.0 },
   };
-  
-  const finalMultiplier = calculateFinalMultiplier(multiplier);
-  const multiplierDisplay = `${finalMultiplier.toFixed(2)}x`;
+  const selectedCount = Object.keys(selections).length || 0;
+  const scheduled = multiplierSchedule[selectedCount as keyof typeof multiplierSchedule];
+  const computedMultiplier = scheduled 
+    ? (isFlex ? scheduled.flexAllWin : scheduled.standard)
+    : 0;
+  const flexOneMissMultiplier = scheduled?.flexOneMiss || 0;
+  const multiplierDisplay = computedMultiplier ? `${computedMultiplier.toFixed(2)}x` : "—";
   const potentialWin = entryAmount && Number.parseFloat(entryAmount) > 0
-    ? (Number.parseFloat(entryAmount) * finalMultiplier).toFixed(2)
+    ? (Number.parseFloat(entryAmount) * (computedMultiplier || 0)).toFixed(2)
     : "0.00";
   
   const selectedPicks = Object.entries(selections).map(([matchupId, chosen]) => {
@@ -150,89 +243,95 @@ export default function MatchupsPage() {
   }
   
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gray-50 overflow-hidden">
-      <div className="h-full flex gap-4 p-4">
-        {/* Left Panel - Starters Window */}
-        <div className="w-80 flex-shrink-0">
+    <div className="h-[calc(100vh-4rem)] bg-[var(--surface-1)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
+      <div className="flex-1 flex gap-4 px-4 py-4 min-h-0" style={{ overscrollBehavior: 'contain' }}>
+        {/* Left Panel - Starters Window (fixed to Figma width 496px) */}
+        <div className="w-[496px] flex-shrink-0 h-full min-h-0">
           <StartersWindow
             connections={connections}
             selectedConnection={filteredConnection}
-            onConnectionClick={handleConnectionClick}
+            onConnectionClick={(conn) => {
+              handleConnectionClick(conn);
+              if (!conn) {
+                setHighlightedConnectionId(null);
+              }
+            }}
             onConnectionBoxClick={handleConnectionBoxClick}
+            matchups={matchups}
+            onConnectionClickToMatchup={scrollToMatchupForConnection}
           />
         </div>
         
         {/* Middle Panel - Matchups/Players */}
-        <div className="flex-1 overflow-y-auto pr-2">
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h1 className="text-2xl font-bold text-gray-900">Players</h1>
-              <div className="flex items-center gap-2">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Tolerance:</span> ${tolerance}
-                </div>
+        <div className="flex-1 min-w-0 min-h-0">
+          <Card className="bg-[var(--surface-1)] rounded-lg shadow-lg border border-[var(--content-15)] h-full flex flex-col overflow-hidden overscroll-contain">
+            {/* Header - Same line as other panels */}
+            <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Players</h1>
                 <Button
                   onClick={() => regenerateMatchups({ tolerance })}
                   variant="outline"
-                  size="sm"
+                  size="default"
+                  className="px-6 py-3 text-base font-semibold hover:bg-[var(--btn-default)] hover:text-white"
                 >
                   Reload
                 </Button>
               </div>
             </div>
-            <div className="text-sm text-gray-600">
-              Select 2-10 matchups to build your round
-            </div>
-            <div className="mt-2">
-              <Slider
-                value={[tolerance]}
-                onValueChange={([val]) => setTolerance(val)}
-                min={100}
-                max={1000}
-                step={50}
-                className="w-full max-w-xs"
-              />
-            </div>
-          </div>
+            
+            {/* Divider - matching Starters panel */}
+            <div className="border-b border-[var(--content-15)]"></div>
           
-          <div className="space-y-4">
+                 <div className="flex-1 overflow-y-auto pb-4" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
+              <div className="w-full">
             {matchups.length === 0 ? (
-              <Card className="p-12 text-center bg-white">
+              <Card className="p-12 text-center bg-[var(--surface-1)] border border-[var(--content-15)]">
                 <div className="text-gray-500">No matchups available. Try adjusting tolerance.</div>
               </Card>
             ) : (
               matchups.map((matchup, index) => (
-                <div key={matchup.id}>
-                  <div className="mb-2 text-sm font-medium text-gray-600">
-                    Matchup {index + 1}
-                  </div>
+                <div key={matchup.id} data-matchup-id={matchup.id} className="w-full">
                   <MatchupCard
                     matchup={matchup}
                     selected={selections[matchup.id]}
                     onSelect={(side) => handleSelect(matchup.id, side)}
                     onConnectionClick={(connId) => handleConnectionBoxClick(connId)}
+                    onConnectionNameClick={handleConnectionNameClick}
+                    highlightedConnectionId={highlightedConnectionId || filteredConnection?.id}
                     showPoints={false}
                     showAvpaRace={false}
+                    matchupNumber={index + 1}
+                    onCompareClick={() => {
+                      setSelectedMatchupForComparison(matchup);
+                      setIsComparisonModalOpen(true);
+                    }}
                   />
                 </div>
               ))
             )}
-          </div>
+              </div>
+            </div>
+          </Card>
         </div>
         
         {/* Right Panel - Lineup/Selections */}
-        <div className="w-80 flex-shrink-0">
-          <div className="space-y-4 sticky top-4">
-            {/* Your Picks */}
-            <Card className="bg-white p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-900">
-                  Your picks <span className="bg-yellow-400 text-gray-900 rounded-full px-2 py-0.5 text-sm">{selectedPicks.length}</span>
-                </h2>
-                <Settings className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" />
-              </div>
-              
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="w-80 flex-shrink-0 flex flex-col h-full min-h-0">
+          <Card className="bg-[var(--surface-1)] rounded-lg shadow-lg border border-[var(--content-15)] h-full flex flex-col overflow-hidden">
+          {/* Header - Same line as other panels */}
+          <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[var(--text-primary)]">
+                Your picks <span className="bg-[var(--blue-50)] text-[var(--brand)] rounded-full px-2 py-0.5 text-sm">{selectedPicks.length}</span>
+              </h2>
+              <Settings className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" />
+            </div>
+          </div>
+          
+          {/* Scrollable Your Picks Section */}
+          <div className="flex-1 overflow-y-auto min-h-0 p-4" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
+            
+            <div className="space-y-1.5">
                 {selectedPicks.length === 0 ? (
                   <div className="text-sm text-gray-500 text-center py-8">
                     Select matchups to see your picks
@@ -241,102 +340,148 @@ export default function MatchupsPage() {
                   selectedPicks.map((pick) => (
                     <div
                       key={pick!.matchupId}
-                      className="bg-gray-50 rounded-lg p-3 border border-gray-200 relative hover:shadow-sm transition-shadow"
+                      className="bg-[var(--surface-1)] rounded-lg p-2 border border-[var(--chip-outline)] relative hover:shadow-sm transition-shadow"
                     >
                       <button
                         onClick={() => removePick(pick!.matchupId)}
-                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                        className="absolute top-1.5 right-1.5 text-gray-400 hover:text-gray-600"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3 h-3" />
                       </button>
-                      <div className="text-xs text-gray-500 mb-1">Set {pick!.chosen}</div>
-                      <div className="font-semibold text-sm text-gray-900">
+                      <div className="text-xs text-gray-500 mb-0.5">Set {pick!.chosen}</div>
+                      <div className="font-semibold text-xs text-gray-900 pr-6">
                         {pick!.names.join(", ")}
                       </div>
                     </div>
                   ))
                 )}
               </div>
-            </Card>
-            
-            {/* Entry Amount */}
-            <Card className="bg-white p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-bold text-gray-900">Entry amount</h2>
-                <Info className="w-4 h-4 text-gray-400" />
-              </div>
-              
-              <div className="mb-3">
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={entryAmount}
-                    onChange={(e) => setEntryAmount(e.target.value)}
-                    className={`pl-7 pr-3 ${
-                      entryAmount && 
-                      Number.parseFloat(entryAmount) > bankroll 
-                        ? "border-red-500 border-2 focus:border-red-500" 
-                        : ""
-                    }`}
-                    min="1"
-                    max={bankroll}
-                  />
+          </div>
+          
+          {/* Entry Amount - Always Visible */}
+          <div className="flex-shrink-0 px-4 py-4 border-t border-[var(--content-15)]">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-[var(--text-primary)]">Entry amount</h2>
+                  <Info className="w-4 h-4 text-gray-400" />
                 </div>
-                <div className="mt-1 flex justify-between text-xs">
-                  <span className="text-gray-500">Max: ${bankroll.toFixed(0)}</span>
-                  {entryAmount && Number.parseFloat(entryAmount) > bankroll && (
-                    <span className="text-red-600 font-medium">Amount exceeds bankroll</span>
-                  )}
+                
+                <div className="mb-3">
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <Input
+                      type="number"
+                      placeholder="Enter amount"
+                      value={entryAmount}
+                      onChange={(e) => setEntryAmount(e.target.value)}
+                      className={`pl-7 pr-3 ${
+                        entryAmount && 
+                        Number.parseFloat(entryAmount) > bankroll 
+                          ? "border-red-500 border-2 focus:border-red-500" 
+                          : ""
+                      }`}
+                      min="1"
+                      max={bankroll}
+                    />
+                  </div>
+                  <div className="mt-1 flex justify-between text-xs">
+                    <span className="text-gray-500">Max: ${bankroll.toFixed(0)}</span>
+                    {entryAmount && Number.parseFloat(entryAmount) > bankroll && (
+                      <span className="text-red-600 font-medium">Amount exceeds bankroll</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              
-              <div className="mb-3">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Multiplier
-                </label>
-                <div className="grid grid-cols-5 gap-1">
-                  {[2, 3, 4, 5, 6].map((mult) => {
-                    const finalMult = calculateFinalMultiplier(mult - 1);
-                    return (
+                
+                {selectedCount >= 2 && (
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-3">
+                      <label className="text-sm font-medium text-gray-700">Expected payout</label>
+                      <Info className="w-3 h-3 text-gray-400" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Standard Card */}
                       <button
-                        key={mult}
-                        onClick={() => setMultiplier(mult - 1)}
-                        className={`py-2 px-2 rounded-md text-xs font-semibold transition-colors ${
-                          multiplier === mult - 1
-                            ? "bg-gray-900 text-white"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        type="button"
+                        onClick={() => setIsFlex(false)}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          !isFlex
+                            ? "border-[var(--brand)] bg-[var(--blue-50)]"
+                            : "border-gray-200 bg-white hover:border-gray-300"
                         }`}
                       >
-                        {finalMult.toFixed(1)}x
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-xs font-semibold text-gray-700">Standard</div>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            !isFlex
+                              ? "border-[var(--brand)] bg-[var(--brand)]"
+                              : "border-gray-300"
+                          }`}>
+                            {!isFlex && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600 mb-1">{selectedCount} Correct</div>
+                        <div className="text-sm font-semibold text-green-600">{scheduled?.standard.toFixed(2)}x</div>
                       </button>
-                    );
-                  })}
+                      
+                      {/* Flex Card */}
+                      <button
+                        type="button"
+                        onClick={() => setIsFlex(true)}
+                        className={`p-3 rounded-lg border-2 text-left transition-all ${
+                          isFlex
+                            ? "border-[var(--brand)] bg-[var(--blue-50)]"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1">
+                            <div className="text-xs font-semibold text-gray-700">Flex</div>
+                            <Info className="w-3 h-3 text-gray-400" />
+                          </div>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            isFlex
+                              ? "border-[var(--brand)] bg-[var(--brand)]"
+                              : "border-gray-300"
+                          }`}>
+                            {isFlex && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600 mb-1">{selectedCount} Correct</div>
+                        <div className="text-sm font-semibold text-green-600 mb-1">{scheduled?.flexAllWin.toFixed(2)}x</div>
+                        <div className="text-xs text-gray-600">{selectedCount - 1} Correct</div>
+                        <div className="text-xs font-semibold text-green-600">up to {scheduled?.flexOneMiss.toFixed(2)}x</div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="mb-3 min-h-[60px]">
+                  {entryAmount && Number.parseFloat(entryAmount) > 0 ? (
+                    <div className="p-2 bg-blue-50 rounded-md">
+                      <div className="text-xs text-gray-600">Potential Win</div>
+                      <div className="text-lg font-bold text-blue-600">${potentialWin}</div>
+                      <div className="text-xs text-gray-500 mt-1">at {multiplierDisplay}</div>
+                    </div>
+                  ) : (
+                    <div className="h-[60px]" />
+                  )}
                 </div>
-              </div>
-              
-              {entryAmount && Number.parseFloat(entryAmount) > 0 && (
-                <div className="mb-3 p-2 bg-blue-50 rounded-md">
-                  <div className="text-xs text-gray-600">Potential Win</div>
-                  <div className="text-lg font-bold text-blue-600">${potentialWin}</div>
-                  <div className="text-xs text-gray-500 mt-1">at {multiplierDisplay}</div>
-                </div>
-              )}
-              
-              <Button
-                onClick={handleSubmit}
-                disabled={!isPlayButtonEnabled}
-                className={`w-full py-3 font-semibold ${
-                  isPlayButtonEnabled
-                    ? "bg-gray-900 hover:bg-gray-800 text-white"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-              >
-                Play
-              </Button>
-            </Card>
           </div>
+          
+          {/* Play Button - Always Visible at Bottom */}
+          <div className="flex-shrink-0 px-4 py-4 border-t border-[var(--content-15)]">
+            <Button
+              onClick={handleSubmit}
+              disabled={!isPlayButtonEnabled}
+              className={`w-full py-3 font-semibold ${
+                isPlayButtonEnabled
+                  ? "bg-[var(--btn-default)] hover:opacity-90 text-white"
+                  : "bg-[var(--content-16)] text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Play
+            </Button>
+          </div>
+          </Card>
         </div>
       </div>
       
@@ -351,6 +496,16 @@ export default function MatchupsPage() {
           }}
         />
       )}
+      
+      {/* Comparison Modal */}
+      <ComparisonModal
+        matchup={selectedMatchupForComparison}
+        isOpen={isComparisonModalOpen}
+        onClose={() => {
+          setIsComparisonModalOpen(false);
+          setSelectedMatchupForComparison(null);
+        }}
+      />
     </div>
   );
 }

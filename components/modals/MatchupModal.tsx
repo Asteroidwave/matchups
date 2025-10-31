@@ -81,25 +81,83 @@ export function MatchupModal({
                   </div>
                 </div>
                 
-                {/* Top finishes breakdown */}
-                {conn.starters.filter(s => s.pos && s.pos >= 1 && s.pos <= 3).length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="text-xs text-gray-500 mb-2">Top Finishes:</div>
-                    <div className="space-y-1">
-                      {conn.starters
-                        .filter(s => s.pos && s.pos >= 1 && s.pos <= 3)
-                        .slice(0, 5)
-                        .map((starter, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className={getPlaceColor(starter.pos)}>
-                              {starter.horseName} ({starter.track} R{starter.race}) - {starter.pos || 0}
-                            </span>
-                            <span className="font-medium">{starter.points?.toFixed(1) || 0} pts</span>
-                          </div>
-                        ))}
-                    </div>
+                {/* Top Finishes - Table Format (includes all races, even 0 points) */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs font-semibold text-gray-700 mb-2">Top Finishes:</div>
+                  <div className="overflow-x-auto max-h-[132px] overflow-y-auto border border-gray-200 rounded">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-white">
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Horse</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Track</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Race</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Finish</th>
+                          <th className="text-right py-1 px-2 font-semibold text-gray-700">Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Group starters by track
+                          const groupedByTrack = new Map<string, typeof conn.starters>();
+                          for (const starter of conn.starters) {
+                            if (!groupedByTrack.has(starter.track)) {
+                              groupedByTrack.set(starter.track, []);
+                            }
+                            groupedByTrack.get(starter.track)!.push(starter);
+                          }
+                          
+                          const tracks = Array.from(groupedByTrack.keys());
+                          const result: JSX.Element[] = [];
+                          
+                          tracks.forEach((track, trackIdx) => {
+                            const starters = groupedByTrack.get(track)!;
+                            
+                            // Add separator row (except for first track)
+                            if (trackIdx > 0) {
+                              result.push(
+                                <tr key={`separator-${track}`} className="bg-gray-100">
+                                  <td colSpan={5} className="py-1 px-2">
+                                    <div className="h-px bg-gray-300"></div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            
+                            // Add track header
+                            result.push(
+                              <tr key={`header-${track}`} className="bg-gray-50">
+                                <td colSpan={5} className="py-1 px-2 font-semibold text-gray-700 text-[10px]">
+                                  {track}
+                                </td>
+                              </tr>
+                            );
+                            
+                            // Add starters for this track
+                            starters.forEach((starter, idx) => {
+                              result.push(
+                                <tr key={`${track}-${idx}`} className="border-b border-gray-100">
+                                  <td className="py-1 px-2 text-gray-900">{starter.horseName}</td>
+                                  <td className="py-1 px-2 text-gray-600">{starter.track}</td>
+                                  <td className="py-1 px-2 text-gray-600">R{starter.race}</td>
+                                  <td className="py-1 px-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
+                                      {starter.pos || "—"}
+                                    </span>
+                                  </td>
+                                  <td className="py-1 px-2 text-right font-medium text-gray-900">
+                                    {starter.points?.toFixed(1) || 0}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          });
+                          
+                          return result;
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>
@@ -146,25 +204,83 @@ export function MatchupModal({
                   </div>
                 </div>
                 
-                {/* Top finishes breakdown */}
-                {conn.starters.filter(s => s.pos && s.pos >= 1 && s.pos <= 3).length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-gray-200">
-                    <div className="text-xs text-gray-500 mb-2">Top Finishes:</div>
-                    <div className="space-y-1">
-                      {conn.starters
-                        .filter(s => s.pos && s.pos >= 1 && s.pos <= 3)
-                        .slice(0, 5)
-                        .map((starter, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs">
-                            <span className={getPlaceColor(starter.pos)}>
-                              {starter.horseName} ({starter.track} R{starter.race}) - {starter.pos || 0}
-                            </span>
-                            <span className="font-medium">{starter.points?.toFixed(1) || 0} pts</span>
-                          </div>
-                        ))}
-                    </div>
+                {/* Top Finishes - Table Format (includes all races, even 0 points) */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="text-xs font-semibold text-gray-700 mb-2">Top Finishes:</div>
+                  <div className="overflow-x-auto max-h-[132px] overflow-y-auto border border-gray-200 rounded">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-white">
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Horse</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Track</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Race</th>
+                          <th className="text-left py-1 px-2 font-semibold text-gray-700">Finish</th>
+                          <th className="text-right py-1 px-2 font-semibold text-gray-700">Points</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Group starters by track
+                          const groupedByTrack = new Map<string, typeof conn.starters>();
+                          for (const starter of conn.starters) {
+                            if (!groupedByTrack.has(starter.track)) {
+                              groupedByTrack.set(starter.track, []);
+                            }
+                            groupedByTrack.get(starter.track)!.push(starter);
+                          }
+                          
+                          const tracks = Array.from(groupedByTrack.keys());
+                          const result: JSX.Element[] = [];
+                          
+                          tracks.forEach((track, trackIdx) => {
+                            const starters = groupedByTrack.get(track)!;
+                            
+                            // Add separator row (except for first track)
+                            if (trackIdx > 0) {
+                              result.push(
+                                <tr key={`separator-${track}`} className="bg-gray-100">
+                                  <td colSpan={5} className="py-1 px-2">
+                                    <div className="h-px bg-gray-300"></div>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            
+                            // Add track header
+                            result.push(
+                              <tr key={`header-${track}`} className="bg-gray-50">
+                                <td colSpan={5} className="py-1 px-2 font-semibold text-gray-700 text-[10px]">
+                                  {track}
+                                </td>
+                              </tr>
+                            );
+                            
+                            // Add starters for this track
+                            starters.forEach((starter, idx) => {
+                              result.push(
+                                <tr key={`${track}-${idx}`} className="border-b border-gray-100">
+                                  <td className="py-1 px-2 text-gray-900">{starter.horseName}</td>
+                                  <td className="py-1 px-2 text-gray-600">{starter.track}</td>
+                                  <td className="py-1 px-2 text-gray-600">R{starter.race}</td>
+                                  <td className="py-1 px-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
+                                      {starter.pos || "—"}
+                                    </span>
+                                  </td>
+                                  <td className="py-1 px-2 text-right font-medium text-gray-900">
+                                    {starter.points?.toFixed(1) || 0}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          });
+                          
+                          return result;
+                        })()}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>

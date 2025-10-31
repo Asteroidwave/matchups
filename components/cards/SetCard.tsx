@@ -4,13 +4,15 @@ import { SetStats } from "./SetStats";
 
 interface SetCardProps {
   readonly setSide: SetSide;
-  readonly label: string;
+  readonly label?: string;
   readonly isSelected: boolean;
   readonly onSelect: () => void;
   readonly onConnectionClick?: (connectionId: string) => void;
+  readonly onConnectionNameClick?: (connectionId: string) => void;
   readonly showSalary?: boolean;
   readonly showPoints?: boolean;
   readonly showAvpaRace?: boolean;
+  readonly highlightedConnectionId?: string;
 }
 
 export function SetCard({
@@ -19,9 +21,11 @@ export function SetCard({
   isSelected,
   onSelect,
   onConnectionClick,
+  onConnectionNameClick,
   showSalary = true,
   showPoints = false,
   showAvpaRace = false,
+  highlightedConnectionId,
 }: SetCardProps) {
   const connectionCount = setSide.connections.length;
   const totalPoints = setSide.connections.reduce((sum, c) => sum + c.pointsSum, 0);
@@ -29,54 +33,48 @@ export function SetCard({
     ? (1000 * totalPoints) / setSide.salaryTotal 
     : 0;
   
+  const isSingleConnection = connectionCount === 1;
+  
   return (
     <div
-      role="button"
-      tabIndex={0}
       className={`
-        rounded-xl border-2 p-4 cursor-pointer transition-all
+        rounded-xl border-2 p-4 transition-all
         ${isSelected 
-          ? "border-blue-500 bg-blue-50 shadow-md" 
-          : "border-gray-200 bg-white hover:border-gray-300"
+          ? "border-[var(--brand)] bg-[var(--blue-50)] shadow-md" 
+          : "border-[var(--content-15)] bg-[var(--surface-1)] hover:border-[var(--content-9)]"
         }
       `}
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="font-bold text-lg text-gray-900">{label}</div>
-        {isSelected && (
-          <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-            Selected
-          </div>
-        )}
-      </div>
-      
-      {/* Set Summary - Centered and Prominent */}
-      <div className="bg-gray-50 rounded-lg p-3 mb-4 text-center">
+      {/* Top Row: Salary and Select Button */}
+      <div 
+        role="button"
+        tabIndex={0}
+        className="bg-[var(--blue-50)] rounded-lg p-3 mb-4 flex items-center justify-between border border-[var(--content-16)] cursor-pointer hover:bg-[var(--blue-50)]/80 transition-colors"
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
+      >
         {showSalary ? (
-          <div className="text-2xl font-bold text-gray-900 mb-1">
+          <div className="text-2xl font-bold text-[var(--text-primary)]">
             ${setSide.salaryTotal.toLocaleString()}
           </div>
-        ) : null}
-        <div className="text-sm text-gray-600">
-          {connectionCount} connection{connectionCount === 1 ? "" : "s"}
-        </div>
-        {showPoints && (
-          <div className="mt-2 text-lg font-semibold text-blue-600">
-            {totalPoints.toFixed(1)} pts
-          </div>
+        ) : (
+          <div />
         )}
-        {showAvpaRace && (
-          <div className="mt-1 text-sm font-medium text-gray-700">
-            AVPA (Race): {totalAvpaRace.toFixed(1)}
-          </div>
-        )}
+        <button
+          type="button"
+          className={`px-3 py-1 rounded-full text-sm font-semibold ${isSelected ? "bg-[var(--btn-default)] text-white" : "bg-[var(--blue-50)] text-[var(--brand)]"}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+        >
+          {isSelected ? "Selected" : "Select"}
+        </button>
       </div>
       
       {/* Connection Cards */}
@@ -86,6 +84,10 @@ export function SetCard({
             key={conn.id} 
             connection={conn}
             onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
+            onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
+            isHighlighted={conn.id === highlightedConnectionId}
+            showSalary={!isSingleConnection}
+            compact={false}
           />
         ))}
       </div>

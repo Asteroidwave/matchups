@@ -14,7 +14,7 @@ export function generateMatchups(
   const {
     count = 10,
     tolerance = 500,
-    sizes = [1, 2, 3],
+    sizes = [1, 2], // Only 1v1, 2v1, 1v2 (max 2 connections per side)
   } = options;
   
   const matchups: Matchup[] = [];
@@ -25,26 +25,54 @@ export function generateMatchups(
   // This ensures every matchup has a clear winner (no 0-0 ties)
   const eligible = pool.filter(c => c.apps >= 2 && c.pointsSum > 0);
   
-  if (eligible.length < Math.max(...sizes) * 2) {
+  if (eligible.length < 2) {
     console.warn("Not enough eligible connections for matchup generation");
     return matchups;
   }
   
-  // Shuffle pool for randomness
+  // Create a shuffled pool for more variety - mix popular and less popular connections
   const shuffled = [...eligible].sort(() => Math.random() - 0.5);
   
+  // Sort by popularity for reference, but we'll mix it up
+  const sortedByPopularity = [...eligible].sort((a, b) => {
+    const popA = (a.pointsSum / a.apps) * a.apps;
+    const popB = (b.pointsSum / b.apps) * b.apps;
+    if (Math.abs(popA - popB) > 0.1) return popB - popA;
+    return b.apps - a.apps;
+  });
+  
+  // For each matchup, try 1v1 first (80% chance), then 2v1 or 1v2 (20% chance)
   for (let i = 0; i < count; i++) {
     let matchup: Matchup | null = null;
     let attempts = 0;
     
+    // Prefer 1v1 matchups
+    const prefer1v1 = Math.random() < 0.8;
+    
     while (!matchup && attempts < maxAttempts) {
       attempts++;
       
-      const sizeA = sizes[Math.floor(Math.random() * sizes.length)];
-      const sizeB = sizes[Math.floor(Math.random() * sizes.length)];
+      let sizeA: number, sizeB: number;
+      if (prefer1v1 && sizes.includes(1)) {
+        // Prefer 1v1
+        sizeA = 1;
+        sizeB = 1;
+      } else {
+        // Allow 2v1 or 1v2, but cap at 2 connections per side
+        sizeA = sizes[Math.floor(Math.random() * sizes.length)];
+        sizeB = sizes[Math.floor(Math.random() * sizes.length)];
+        // Ensure at least one side is 1 (no 2v2)
+        if (sizeA === 2 && sizeB === 2) {
+          if (Math.random() < 0.5) sizeA = 1;
+          else sizeB = 1;
+        }
+      }
       
-      // Get available connections (prefer unused for first few matchups)
-      let available = shuffled.filter(c => 
+      // Mix up candidates: 50% chance to use shuffled (more variety), 50% popular
+      const useVariety = Math.random() < 0.5;
+      let available = useVariety ? shuffled.filter(c => 
+        i < 5 ? !usedConnections.has(c.id) : true
+      ) : sortedByPopularity.filter(c => 
         i < 5 ? !usedConnections.has(c.id) : true
       );
       
@@ -52,8 +80,8 @@ export function generateMatchups(
         available = shuffled; // Allow reuse if needed
       }
       
-      // Shuffle again
-      const candidates = [...available].sort(() => Math.random() - 0.5);
+      // Shuffle candidates for more variety even when using popular list
+      const candidates = [...available].sort(() => Math.random() - 0.3);
       
       // Build Set A
       const setA: Connection[] = [];
