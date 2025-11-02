@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Matchup, Connection, Starter } from "@/types";
 import { Dialog } from "@/components/ui/dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -17,16 +17,20 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   const [activeTabSetA, setActiveTabSetA] = useState<"connected" | "past">("connected");
   const [activeTabSetB, setActiveTabSetB] = useState<"connected" | "past">("connected");
   const { connections: allConnections } = useApp();
+  const scrollRefA = useRef<HTMLDivElement>(null);
+  const scrollRefB = useRef<HTMLDivElement>(null);
 
   if (!matchup || !isOpen) return null;
 
   // Render a single connection modal (same structure as ConnectionModal)
+  
   const renderConnectionModal = (
     connection: Connection,
     activeTab: "connected" | "past",
     setActiveTab: (tab: "connected" | "past") => void,
     isSetB: boolean = false
   ) => {
+    const scrollRef = isSetB ? scrollRefB : scrollRefA;
     // Background color for the header based on role (single color)
     const headerBg = {
       jockey: "bg-blue-600",
@@ -114,7 +118,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className="max-w-[616px] w-full p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0" style={{ height: '63vh', maxHeight: '63vh' }}>
+      <div className="w-[616px] p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0" style={{ maxHeight: '63vh', height: '63vh', pointerEvents: 'auto' }}>
         {/* Header - Single color design with overlapping circle */}
         <div className={`relative h-[162px] ${headerBg} text-white flex-shrink-0`}>
           <button
@@ -190,19 +194,30 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
         </div>
         
-        {/* Content - Fixed height to prevent jumping */}
+        {/* Content - Fixed height to prevent jumping - exact same pattern as ConnectionModal */}
         <div 
+          ref={scrollRef}
+          className="overflow-y-auto" 
           style={{ 
             height: '350px',
-            overflowY: 'auto',
-            overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
-            position: 'relative'
+            position: 'relative',
+            touchAction: 'pan-y',
+            pointerEvents: 'auto',
+            isolation: 'isolate'
+          }}
+          onWheel={(e) => {
+            if (scrollRef.current) {
+              e.stopPropagation();
+              const delta = e.deltaY;
+              scrollRef.current.scrollTop += delta;
+              e.preventDefault();
+            }
           }}
         >
           {activeTab === "connected" && (
-            <div>
+            <div style={{ width: '100%' }}>
               <table className="w-full">
                 {/* Table Header - Sticky (matching Figma table-header) */}
                 <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
@@ -314,7 +329,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           )}
           
           {activeTab === "past" && (
-            <div>
+            <div style={{ width: '100%' }}>
               <table className="w-full">
                 <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
                   <tr>
@@ -373,25 +388,29 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 pointer-events-auto" onClick={onClose} />
         
         {/* Modal Container - Side by side with gap */}
-        <div className="relative z-50 flex items-start justify-center gap-3 pointer-events-auto pt-8 pb-8">
+        <div className="relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8">
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
-            renderConnectionModal(
-              matchup.setA.connections[0],
-              activeTabSetA,
-              setActiveTabSetA,
-              false
-            )
+            <div className="pointer-events-auto">
+              {renderConnectionModal(
+                matchup.setA.connections[0],
+                activeTabSetA,
+                setActiveTabSetA,
+                false
+              )}
+            </div>
           ) : null}
 
           {/* Set B Modal */}
           {matchup?.setB?.connections?.length > 0 ? (
-            renderConnectionModal(
-              matchup.setB.connections[0],
-              activeTabSetB,
-              setActiveTabSetB,
-              true
-            )
+            <div className="pointer-events-auto">
+              {renderConnectionModal(
+                matchup.setB.connections[0],
+                activeTabSetB,
+                setActiveTabSetB,
+                true
+              )}
+            </div>
           ) : null}
         </div>
       </div>
