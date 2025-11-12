@@ -7,6 +7,7 @@ import { MatchupCard } from "@/components/cards/MatchupCard";
 import { ConnectionModal } from "@/components/modals/ConnectionModal";
 import { ComparisonModal } from "@/components/modals/ComparisonModal";
 import { StartersWindow } from "@/components/windows/StartersWindow";
+import { TrackSelector } from "@/components/track-selector/TrackSelector";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -228,6 +229,34 @@ export default function MatchupsPage() {
   
   // Sort state: 'none' | 'salary-asc' | 'salary-desc' | 'apps-asc' | 'apps-desc'
   const [sortBy, setSortBy] = useState<'none' | 'salary-asc' | 'salary-desc' | 'apps-asc' | 'apps-desc'>('none');
+  
+  // Track selection state
+  const [selectedTrack, setSelectedTrack] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return sessionStorage.getItem('selectedTrack') || '';
+  });
+
+  // Derive available tracks from connections
+  const availableTracks = React.useMemo(() => {
+    const tracks = new Set<string>();
+    for (const conn of allConnectionsMap.values()) {
+      if (conn.trackSet && Array.isArray(conn.trackSet)) {
+        for (const track of conn.trackSet) {
+          tracks.add(track);
+        }
+      }
+    }
+    return Array.from(tracks).sort();
+  }, [allConnectionsMap]);
+
+  // Handle track selection
+  const handleTrackSelect = useCallback((track: string) => {
+    setSelectedTrack(track);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('selectedTrack', track);
+    }
+    // Could optionally reload matchups here if needed
+  }, []);
   
   // Update default when availableMatchupTypes changes
   useEffect(() => {
@@ -577,6 +606,21 @@ export default function MatchupsPage() {
                 </Button>
               </div>
           </div>
+
+            {/* Track Selector - Above matchup types */}
+            {availableTracks.length > 0 && (
+              <div className="flex-shrink-0 px-4 py-3 bg-[var(--content-14)] border-b border-[var(--content-15)]">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide">Track:</span>
+                  <TrackSelector
+                    selectedTrack={selectedTrack}
+                    onTrackSelect={handleTrackSelect}
+                    availableTracks={availableTracks}
+                    isLoading={isLoading}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Matchup Type Tabs - In grey band, aligned with Starters panel grey band */}
             {availableMatchupTypes.length > 0 && (
