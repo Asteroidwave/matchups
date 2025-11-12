@@ -271,6 +271,20 @@ export default function MatchupsPage() {
   let filteredMatchups = selectedMatchupType === 'all'
     ? matchups
     : matchups.filter(m => m.matchupType === selectedMatchupType);
+
+  // Filter by selected track (if any)
+  if (selectedTrack) {
+    filteredMatchups = filteredMatchups.filter((matchup) => {
+      // Check if any connection in the matchup has the selected track
+      const hasTrack = (connections: Connection[]) =>
+        connections.some((conn) => {
+          const tracks = conn.trackSet || [];
+          return tracks.includes(selectedTrack);
+        });
+
+      return hasTrack(matchup.setA.connections) || hasTrack(matchup.setB.connections);
+    });
+  }
   
   // Apply sorting
   if (sortBy !== 'none') {
