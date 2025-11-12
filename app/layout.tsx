@@ -2,8 +2,10 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AppProvider } from '@/contexts/AppContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { Analytics } from "@vercel/analytics/react";
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,11 +22,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AppProvider>
-          <Navigation />
-          {children}
-          <Analytics />
-        </AppProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <AppProvider>
+              <Navigation />
+              {children}
+              <Analytics />
+            </AppProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

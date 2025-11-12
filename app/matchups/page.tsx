@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { MatchupCard } from "@/components/cards/MatchupCard";
@@ -10,8 +10,11 @@ import { StartersWindow } from "@/components/windows/StartersWindow";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { RoundPick, Connection, Matchup } from "@/types";
-import { X, Settings, Info } from "lucide-react";
+import { RoundPick, Connection, Matchup, Starter } from "@/types";
+import { X, Settings, Info, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function MatchupsPage() {
   const router = useRouter();
@@ -19,23 +22,268 @@ export default function MatchupsPage() {
     connections,
     matchups,
     tolerance,
-    setTolerance,
     regenerateMatchups,
     submitRound,
     isLoading,
     error,
     bankroll,
+    availableMatchupTypes: availableMatchupTypesFromContext,
   } = useApp();
   
   const [selections, setSelections] = useState<Record<string, "A" | "B">>({});
-  const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
-  const [filteredConnection, setFilteredConnection] = useState<Connection | null>(null);
+  const [selectedConnectionForModal, setSelectedConnectionForModal] = useState<Connection | null>(null);
+  const [filteredConnections, setFilteredConnections] = useState<Set<string>>(new Set());
   const [highlightedConnectionId, setHighlightedConnectionId] = useState<string | null>(null);
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
   const [selectedMatchupForComparison, setSelectedMatchupForComparison] = useState<Matchup | null>(null);
   const [entryAmount, setEntryAmount] = useState<string>("");
   const [isFlex, setIsFlex] = useState<boolean>(false);
+  const connectionScrollPositionsRef = useRef<Record<string, number>>({});
+  const visibleMatchupsRef = useRef<Array<{ matchup: Matchup; uniqueKey: string }>>([]);
+  // Get available matchup types from sessionStorage
+  const availableMatchupTypesFromSession = typeof window !== 'undefined' 
+    ? JSON.parse(sessionStorage.getItem('availableMatchupTypes') || '[]')
+    : [];
+  const availableMatchupTypes = availableMatchupTypesFromContext.length > 0
+    ? availableMatchupTypesFromContext
+    : availableMatchupTypesFromSession;
+  
+  const allConnectionsMap = React.useMemo(() => {
+    const mergeStarters = (existing: Starter[] = [], incoming: Starter[] = []) => {
+      const combined = new Map<string, Starter>();
+      for (const starter of existing) {
+        if (!starter) continue;
+        const key = `${starter.track || ""}-${starter.race ?? ""}-${starter.horseName || ""}`;
+        combined.set(key, starter);
+      }
+      for (const starter of incoming) {
+        if (!starter) continue;
+        const key = `${starter.track || ""}-${starter.race ?? ""}-${starter.horseName || ""}`;
+        if (!combined.has(key)) {
+          combined.set(key, starter);
+        }
+      }
+      return Array.from(combined.values());
+    };
+
+    const map = new Map<string, Connection>();
+
+    const addConnection = (conn?: Connection | null) => {
+      if (!conn || !conn.id) return;
+
+      const sanitizedStarters = Array.isArray(conn.starters) ? conn.starters : [];
+      const sanitizedTrackSet = Array.isArray(conn.trackSet) ? conn.trackSet : [];
+
+      const existing = map.get(conn.id);
+      if (!existing) {
+        const derivedTracks = new Set<string>(sanitizedTrackSet.filter(Boolean));
+        for (const starter of sanitizedStarters) {
+          if (starter?.track) {
+            derivedTracks.add(starter.track);
+          }
+        }
+        map.set(conn.id, {
+          ...conn,
+          starters: [...sanitizedStarters],
+          trackSet: Array.from(derivedTracks),
+        });
+        return;
+      }
+
+      const mergedStarters = mergeStarters(existing.starters || [], sanitizedStarters);
+      const mergedTracks = new Set<string>([
+        ...(existing.trackSet || []),
+        ...sanitizedTrackSet.filter(Boolean),
+      ]);
+      for (const starter of sanitizedStarters) {
+        if (starter?.track) {
+          mergedTracks.add(starter.track);
+        }
+      }
+
+      map.set(conn.id, {
+        ...existing,
+        ...conn,
+        starters: mergedStarters,
+        trackSet: Array.from(mergedTracks),
+      });
+    };
+
+    for (const conn of connections) {
+      addConnection(conn);
+    }
+    for (const matchup of matchups) {
+      for (const conn of matchup.setA.connections) {
+        addConnection(conn);
+      }
+      for (const conn of matchup.setB.connections) {
+        addConnection(conn);
+      }
+    }
+
+    return map;
+  }, [connections, matchups]);
+
+  const allConnections = React.useMemo(
+    () => Array.from(allConnectionsMap.values()),
+    [allConnectionsMap]
+  );
+
+  const updateFilteredConnections = useCallback((updater: (prev: Set<string>) => Set<string>) => {
+    setFilteredConnections((prev) => updater(prev));
+  }, []);
+
+  const toggleConnectionFilter = useCallback((connectionId: string) => {
+    let nextHighlighted: string | null = null;
+    updateFilteredConnections((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(connectionId)) {
+        newSet.delete(connectionId);
+        delete connectionScrollPositionsRef.current[connectionId];
+      } else {
+        newSet.add(connectionId);
+        connectionScrollPositionsRef.current[connectionId] = -1;
+      }
+
+      if (newSet.size === 0) {
+        nextHighlighted = null;
+      } else if (newSet.has(connectionId)) {
+        nextHighlighted = connectionId;
+      } else {
+        const iterator = newSet.values().next();
+        nextHighlighted = iterator.done ? null : iterator.value;
+      }
+
+      return newSet;
+    });
+    setHighlightedConnectionId(nextHighlighted);
+  }, [updateFilteredConnections]);
+
+  const setSingleConnectionFilter = useCallback((connectionId: string) => {
+    updateFilteredConnections(() => {
+      const newSet = new Set<string>();
+      newSet.add(connectionId);
+      return newSet;
+    });
+    connectionScrollPositionsRef.current = { [connectionId]: -1 };
+    setHighlightedConnectionId(connectionId);
+  }, [updateFilteredConnections]);
+
+  const clearConnectionFilters = useCallback(() => {
+    updateFilteredConnections(() => new Set());
+    connectionScrollPositionsRef.current = {};
+    setHighlightedConnectionId(null);
+  }, [updateFilteredConnections]);
+
+  const removeConnectionFilter = useCallback((connectionId: string) => {
+    let nextHighlighted: string | null = null;
+    updateFilteredConnections((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(connectionId);
+      const iterator = newSet.values().next();
+      nextHighlighted = iterator.done ? null : iterator.value;
+      return newSet;
+    });
+    delete connectionScrollPositionsRef.current[connectionId];
+    setHighlightedConnectionId((prev) => {
+      if (nextHighlighted) return nextHighlighted;
+      return prev === connectionId ? null : prev;
+    });
+  }, [updateFilteredConnections]);
+  
+  const primaryFilteredConnection = React.useMemo(() => {
+    const iterator = filteredConnections.values().next();
+    if (iterator.done) return null;
+    const firstId = iterator.value;
+    return allConnectionsMap.get(firstId) || null;
+  }, [filteredConnections, allConnectionsMap]);
+
+  const getConnectionById = useCallback(
+    (connectionId: string) => allConnectionsMap.get(connectionId) || null,
+    [allConnectionsMap]
+  );
+
+  // Default to "all" if more than 1 type available, otherwise use the single type
+  const defaultMatchupType = availableMatchupTypes.length > 1 ? "all" : (availableMatchupTypes[0] || "all");
+  const [selectedMatchupType, setSelectedMatchupType] = useState<string>(defaultMatchupType);
+
+  useEffect(() => {
+    if (filteredConnections.size === 0) {
+      if (highlightedConnectionId !== null) {
+        setHighlightedConnectionId(null);
+      }
+      return;
+    }
+
+    if (highlightedConnectionId && filteredConnections.has(highlightedConnectionId)) {
+      return;
+    }
+
+    const iterator = filteredConnections.values().next();
+    if (!iterator.done) {
+      setHighlightedConnectionId(iterator.value);
+    }
+  }, [filteredConnections, highlightedConnectionId]);
+  
+  // Sort state: 'none' | 'salary-asc' | 'salary-desc' | 'apps-asc' | 'apps-desc'
+  const [sortBy, setSortBy] = useState<'none' | 'salary-asc' | 'salary-desc' | 'apps-asc' | 'apps-desc'>('none');
+  
+  // Update default when availableMatchupTypes changes
+  useEffect(() => {
+    if (availableMatchupTypes.length > 1 && selectedMatchupType !== "all") {
+      setSelectedMatchupType("all");
+    } else if (availableMatchupTypes.length === 1 && selectedMatchupType === "all") {
+      setSelectedMatchupType(availableMatchupTypes[0]);
+    }
+  }, [availableMatchupTypes.length]);
+  
+  // Filter matchups by selected type
+  let filteredMatchups = selectedMatchupType === 'all'
+    ? matchups
+    : matchups.filter(m => m.matchupType === selectedMatchupType);
+  
+  // Apply sorting
+  if (sortBy !== 'none') {
+    filteredMatchups = [...filteredMatchups].sort((a, b) => {
+      if (sortBy.startsWith('salary')) {
+        const salaryA = a.setA.salaryTotal + a.setB.salaryTotal;
+        const salaryB = b.setA.salaryTotal + b.setB.salaryTotal;
+        return sortBy === 'salary-asc' ? salaryA - salaryB : salaryB - salaryA;
+      } else if (sortBy.startsWith('apps')) {
+        const appsA = a.setA.connections.reduce((sum, c) => sum + (c.apps || 0), 0) + 
+                     a.setB.connections.reduce((sum, c) => sum + (c.apps || 0), 0);
+        const appsB = b.setA.connections.reduce((sum, c) => sum + (c.apps || 0), 0) + 
+                     b.setB.connections.reduce((sum, c) => sum + (c.apps || 0), 0);
+        return sortBy === 'apps-asc' ? appsA - appsB : appsB - appsA;
+      }
+      return 0;
+    });
+  }
+
+  const matchupItems = React.useMemo(
+    () =>
+      filteredMatchups.map((matchup, index) => ({
+        matchup,
+        uniqueKey: matchup.id || `matchup-${index}-${matchup.matchupType || 'unknown'}`,
+      })),
+    [filteredMatchups]
+  );
+  visibleMatchupsRef.current = matchupItems;
+
+  const matchupKeyMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const { matchup, uniqueKey } of matchupItems) {
+      if (matchup.id && !map.has(matchup.id)) {
+        map.set(matchup.id, uniqueKey);
+      }
+    }
+    return map;
+  }, [matchupItems]);
+
+  useEffect(() => {
+    connectionScrollPositionsRef.current = {};
+  }, [selectedMatchupType, sortBy, matchupItems.length]);
   
   // Auto-reload matchups when navigating from results page
   useEffect(() => {
@@ -46,6 +294,19 @@ export default function MatchupsPage() {
       sessionStorage.removeItem('fromResults');
     }
   }, [regenerateMatchups, tolerance]);
+
+  // Ensure data is loaded when entering matchups page from lobby
+  useEffect(() => {
+    const selectedTrack = sessionStorage.getItem('selectedTrack');
+    const selectedDate = sessionStorage.getItem('selectedDate');
+    
+    // If we have a selected track but no connections, trigger a reload
+    // This handles the case where user navigates directly to /matchups
+    if (selectedTrack && connections.length === 0 && !isLoading) {
+      // The AppContext should handle this, but we can force a reload if needed
+      console.log('Track selected but no connections loaded, waiting for AppContext...');
+    }
+  }, [connections.length, isLoading]);
   
   const handleSelect = (matchupId: string, side: "A" | "B") => {
     setSelections((prev) => {
@@ -57,87 +318,121 @@ export default function MatchupsPage() {
       }
       return { ...prev, [matchupId]: side };
     });
-  };
-  
-  const handleConnectionClick = (connection: Connection | null) => {
-    setFilteredConnection(connection);
-    // Clear highlighted connection when clearing filter
-    if (!connection) {
-      setHighlightedConnectionId(null);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
     }
   };
   
+  const handleConnectionClick = (connection: Connection | null) => {
+    if (!connection) {
+      clearConnectionFilters();
+      return;
+    }
+
+    setSingleConnectionFilter(connection.id);
+    setHighlightedConnectionId(connection.id);
+  };
+  
   const handleConnectionBoxClick = (connection: Connection | string) => {
-    const conn = typeof connection === "string" 
-      ? connections.find(c => c.id === connection)
-      : connection;
+    const connectionId = typeof connection === "string" ? connection : connection.id;
+    const conn = connectionId ? getConnectionById(connectionId) : (typeof connection === "object" ? connection : null);
     if (conn) {
-      setSelectedConnection(conn);
+      setSelectedConnectionForModal(conn);
       setIsConnectionModalOpen(true);
+    }
+  };
+
+  // Click picked set in Your Picks to highlight and scroll to matchup
+  const handlePickClick = (matchupId: string, chosenSide: "A" | "B") => {
+    const matchup = matchups.find((m) => m.id === matchupId || m.id?.startsWith(matchupId));
+    if (!matchup) return;
+
+    const targetType = matchup.matchupType || "mixed";
+
+    const scroll = () => {
+      const matchupKey =
+        (matchup.id && matchupKeyMap.get(matchup.id)) ||
+        matchup.id ||
+        matchupItems.find((item) => item.matchup === matchup)?.uniqueKey;
+
+      const matchupElement = matchupKey
+        ? document.querySelector(`[data-matchup-id="${matchupKey}"]`)
+        : null;
+      if (matchupElement instanceof HTMLElement) {
+        matchupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        matchupElement.classList.add('flash-outline');
+        setTimeout(() => {
+          matchupElement.classList.remove('flash-outline');
+        }, 600);
+
+        const setElement = matchupElement.querySelector(
+          `[data-set-side="set${chosenSide}"]`
+        );
+        if (setElement instanceof HTMLElement) {
+          setElement.classList.add('flash-highlight');
+          setTimeout(() => {
+            setElement.classList.remove('flash-highlight');
+          }, 600);
+        }
+      }
+    };
+
+    if (selectedMatchupType !== 'all' && selectedMatchupType !== targetType) {
+      setSelectedMatchupType(targetType);
+      setTimeout(scroll, 0);
+    } else {
+      scroll();
     }
   };
   
   const handleConnectionNameClick = (connectionId: string) => {
-    const conn = connections.find(c => c.id === connectionId);
-    if (conn) {
-      // If clicking the same connection that's already filtered, clear it (toggle off)
-      // This will return to the previous view (either default horses or connected horses)
-      // Otherwise, set it as the new filter (overrides current filter)
-      // This will filter the starters panel to show only horses with this connection
-      if (filteredConnection?.id === connectionId) {
-        setFilteredConnection(null);
-        setHighlightedConnectionId(null);
-      } else {
-        setFilteredConnection(conn);
-        setHighlightedConnectionId(connectionId);
-      }
-    }
-  };
-  
-  // Find matchup containing a specific connection
-  const findMatchupForConnection = (connectionId: string) => {
-    return matchups.findIndex(m => 
-      m.setA.connections.some(c => c.id === connectionId) ||
-      m.setB.connections.some(c => c.id === connectionId)
-    );
+    // Use the existing scrollToMatchupForConnection function which handles everything
+    scrollToMatchupForConnection(connectionId, false);
   };
   
   // Scroll to matchup containing a connection
   // If fromConnectedHorsesView is true, only highlight in players panel, don't filter starters
   const scrollToMatchupForConnection = (connectionId: string, fromConnectedHorsesView: boolean = false) => {
-    const conn = connections.find(c => c.id === connectionId);
+    const conn = getConnectionById(connectionId);
     if (!conn) return;
     
     if (fromConnectedHorsesView) {
       // When clicking from Connected Horses view, only highlight in players panel, don't filter starters
       setHighlightedConnectionId(connectionId);
-      // Clear filtered connection to ensure starters panel doesn't filter
-      setFilteredConnection(null);
     } else {
-      // Normal behavior: filter starters panel
-      // If clicking the same connection that's already filtered, clear it (toggle off)
-      if (filteredConnection?.id === connectionId) {
-        setFilteredConnection(null);
-        setHighlightedConnectionId(null);
-        return;
-      }
-      
-      // Otherwise, set it as filtered (to highlight it in players panel AND filter starters)
-      setFilteredConnection(conn);
+      toggleConnectionFilter(connectionId);
       setHighlightedConnectionId(connectionId);
     }
     
-    // Scroll to the matchup
-    const matchupIndex = findMatchupForConnection(connectionId);
-    if (matchupIndex >= 0) {
-      // Small delay to ensure the highlight renders first
-      setTimeout(() => {
-        const matchupElement = document.querySelector(`[data-matchup-id="${matchups[matchupIndex].id}"]`);
-        if (matchupElement) {
-          matchupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-    }
+    setTimeout(() => {
+      const items = visibleMatchupsRef.current;
+      if (!items.length) {
+        return;
+      }
+
+      const matches = items
+        .map((item, idx) => ({ item, idx }))
+        .filter(({ item }) =>
+          item.matchup.setA.connections.some((c) => c.id === connectionId) ||
+          item.matchup.setB.connections.some((c) => c.id === connectionId)
+        );
+
+      if (!matches.length) {
+        return;
+      }
+
+      const previousIndex = connectionScrollPositionsRef.current[connectionId] ?? -1;
+      const nextMatch =
+        matches.find(({ idx }) => idx > previousIndex) ?? matches[0];
+      connectionScrollPositionsRef.current[connectionId] = nextMatch.idx;
+
+      const matchupElement = document.querySelector(
+        `[data-matchup-id="${nextMatch.item.uniqueKey}"]`
+      );
+      if (matchupElement instanceof HTMLElement) {
+        matchupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 80);
   };
   
   const removePick = (matchupId: string) => {
@@ -174,29 +469,28 @@ export default function MatchupsPage() {
     submitRound(picks, amount, computedMultiplier);
     setSelections({});
     setEntryAmount("");
-    router.push("/results");
+    router.push("/live");
   };
-  
+
   // Industry-standard multiplier schedule (DraftKings/Underdog style)
   // Standard: All picks must win
   // Flex: Lower payout if all win, but allows one miss (with reduced payout)
   const multiplierSchedule: Record<number, { standard: number; flexAllWin: number; flexOneMiss: number }> = {
-    2: { standard: 3.5, flexAllWin: 2.1, flexOneMiss: 1.0 },
-    3: { standard: 6.5, flexAllWin: 3.9, flexOneMiss: 2.0 },
-    4: { standard: 13.0, flexAllWin: 7.8, flexOneMiss: 3.5 },
-    5: { standard: 25.0, flexAllWin: 15.0, flexOneMiss: 6.5 },
-    6: { standard: 50.0, flexAllWin: 30.0, flexOneMiss: 13.0 },
-    7: { standard: 100.0, flexAllWin: 60.0, flexOneMiss: 25.0 },
-    8: { standard: 200.0, flexAllWin: 120.0, flexOneMiss: 50.0 },
-    9: { standard: 400.0, flexAllWin: 240.0, flexOneMiss: 100.0 },
-    10: { standard: 800.0, flexAllWin: 480.0, flexOneMiss: 200.0 },
+    2: { standard: 3, flexAllWin: 1.8, flexOneMiss: 1.25 },
+    3: { standard: 6, flexAllWin: 2.25, flexOneMiss: 1.25 },
+    4: { standard: 10, flexAllWin: 5, flexOneMiss: 2 },
+    5: { standard: 20, flexAllWin: 10, flexOneMiss: 4 },
+    6: { standard: 35, flexAllWin: 17.5, flexOneMiss: 8 },
+    7: { standard: 70, flexAllWin: 35, flexOneMiss: 16 },
+    8: { standard: 125, flexAllWin: 62.5, flexOneMiss: 32 },
+    9: { standard: 250, flexAllWin: 125, flexOneMiss: 64 },
+    10: { standard: 500, flexAllWin: 250, flexOneMiss: 125 },
   };
   const selectedCount = Object.keys(selections).length || 0;
   const scheduled = multiplierSchedule[selectedCount as keyof typeof multiplierSchedule];
   const computedMultiplier = scheduled 
     ? (isFlex ? scheduled.flexAllWin : scheduled.standard)
     : 0;
-  const flexOneMissMultiplier = scheduled?.flexOneMiss || 0;
   const multiplierDisplay = computedMultiplier ? `${computedMultiplier.toFixed(2)}x` : "—";
   const potentialWin = entryAmount && Number.parseFloat(entryAmount) > 0
     ? (Number.parseFloat(entryAmount) * (computedMultiplier || 0)).toFixed(2)
@@ -222,7 +516,7 @@ export default function MatchupsPage() {
     entryAmount &&
     Number.parseFloat(entryAmount) > 0 &&
     Number.parseFloat(entryAmount) <= bankroll;
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -241,15 +535,16 @@ export default function MatchupsPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="h-[calc(100vh-4rem)] bg-[var(--surface-1)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
       <div className="flex-1 flex gap-4 px-4 py-4 min-h-0" style={{ overscrollBehavior: 'contain' }}>
         {/* Left Panel - Starters Window (fixed to Figma width 496px) */}
         <div className="w-[496px] flex-shrink-0 h-full min-h-0">
           <StartersWindow
-            connections={connections}
-            selectedConnection={filteredConnection}
+            connections={allConnections}
+            selectedConnection={primaryFilteredConnection}
+            selectedConnectionIds={filteredConnections}
             onConnectionClick={(conn) => {
               handleConnectionClick(conn);
               if (!conn) {
@@ -259,6 +554,9 @@ export default function MatchupsPage() {
             onConnectionBoxClick={handleConnectionBoxClick}
             matchups={matchups}
             onConnectionClickToMatchup={scrollToMatchupForConnection}
+            activeMatchupType={selectedMatchupType}
+            onRemoveConnectionFilter={removeConnectionFilter}
+            onClearAllFilters={clearConnectionFilters}
           />
         </div>
         
@@ -278,43 +576,143 @@ export default function MatchupsPage() {
                   Reload
                 </Button>
               </div>
-            </div>
-            
-            {/* Divider - matching Starters panel */}
-            <div className="border-b border-[var(--content-15)]"></div>
+          </div>
+
+            {/* Matchup Type Tabs - In grey band, aligned with Starters panel grey band */}
+            {availableMatchupTypes.length > 0 && (
+              <div className="flex-shrink-0 px-4 py-2 bg-[var(--content-15)] border-b border-[var(--content-16)]">
+                <div className="flex items-center gap-1.5 flex-nowrap">
+                  <Tabs value={selectedMatchupType} onValueChange={setSelectedMatchupType}>
+                    <TabsList className="bg-transparent h-auto p-0">
+                      <TabsTrigger 
+                        value="all" 
+                        className={`px-2 py-1 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap h-auto ${
+                          selectedMatchupType === 'all'
+                            ? "bg-[var(--btn-default)] text-white"
+                            : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                        }`}
+                      >
+                        All
+                      </TabsTrigger>
+                      {/* Order: Jockeys, Trainers, Sires, Mixed */}
+                      {['jockey_vs_jockey', 'trainer_vs_trainer', 'sire_vs_sire', 'mixed']
+                        .filter(type => availableMatchupTypes.includes(type))
+                        .map((type: string, idx: number) => {
+                          const labels: Record<string, string> = {
+                            'jockey_vs_jockey': 'Jockeys',
+                            'trainer_vs_trainer': 'Trainers',
+                            'sire_vs_sire': 'Sires',
+                            'mixed': 'Mixed',
+                          };
+                          return (
+                            <React.Fragment key={type}>
+                              {/* Visual Separator */}
+                              {idx > 0 && (
+                                <div className="w-px h-4 bg-[var(--content-16)] mx-0.5"></div>
+                              )}
+                              <TabsTrigger
+                                value={type}
+                                className={`px-2 py-1 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap h-auto ${
+                                  selectedMatchupType === type
+                                    ? "bg-[var(--btn-default)] text-white"
+                                    : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                                }`}
+                              >
+                                {labels[type] || type}
+                              </TabsTrigger>
+                            </React.Fragment>
+                          );
+                        })}
+                    </TabsList>
+                  </Tabs>
+                  
+                  {/* Visual Separator before sort */}
+                  <div className="w-px h-4 bg-[var(--content-16)] mx-0.5"></div>
+                  
+                  {/* Sort Dropdown */}
+                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                    <SelectTrigger className="h-auto px-2 py-1 text-[13px] font-medium bg-transparent border-none shadow-none hover:bg-[var(--blue-50)] data-[state=open]:bg-[var(--blue-50)] w-auto min-w-[120px]">
+                      <div className="flex items-center gap-1.5">
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                        <SelectValue placeholder="Sort" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="salary-asc">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowUp className="w-3 h-3" />
+                          Salary (Low to High)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="salary-desc">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowDown className="w-3 h-3" />
+                          Salary (High to Low)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="apps-asc">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowUp className="w-3 h-3" />
+                          Apps (Low to High)
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="apps-desc">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowDown className="w-3 h-3" />
+                          Apps (High to Low)
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Matchups count - aligned with race info in Starters panel */}
+                  <div className="text-[12px] leading-[18px] font-medium text-[var(--text-primary)] ml-auto">
+                    Matchups {filteredMatchups.length}
+                  </div>
+                </div>
+              </div>
+            )}
           
-                 <div className="flex-1 overflow-y-auto pb-4" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
+            <div className="flex-1 overflow-y-auto pb-4" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
               <div className="w-full">
-            {matchups.length === 0 ? (
+            {matchupItems.length === 0 ? (
               <Card className="p-12 text-center bg-[var(--surface-1)] border border-[var(--content-15)]">
-                <div className="text-gray-500">No matchups available. Try adjusting tolerance.</div>
+                <div className="text-gray-500">
+                  {matchups.length === 0 
+                    ? "No matchups available. Try adjusting tolerance."
+                    : `No ${selectedMatchupType === 'all' ? '' : selectedMatchupType.replace(/_/g, ' ')} matchups available.`}
+                </div>
               </Card>
             ) : (
-              matchups.map((matchup, index) => (
-                <div key={matchup.id} data-matchup-id={matchup.id} className="w-full">
-                  <MatchupCard
-                    matchup={matchup}
-                    selected={selections[matchup.id]}
-                    onSelect={(side) => handleSelect(matchup.id, side)}
-                    onConnectionClick={(connId) => handleConnectionBoxClick(connId)}
-                    onConnectionNameClick={handleConnectionNameClick}
-                    highlightedConnectionId={highlightedConnectionId || filteredConnection?.id}
-                    showPoints={false}
-                    showAvpaRace={false}
-                    matchupNumber={index + 1}
-                    onCompareClick={() => {
-                      setSelectedMatchupForComparison(matchup);
-                      setIsComparisonModalOpen(true);
-                    }}
-                  />
-                </div>
-              ))
+              matchupItems.map(({ matchup, uniqueKey }, index) => {
+                return (
+                  <div key={uniqueKey} data-matchup-id={uniqueKey} className="w-full">
+                    <MatchupCard
+                      matchup={matchup}
+                      selected={selections[uniqueKey]}
+                      onSelect={(side) => handleSelect(uniqueKey, side)}
+                      onConnectionClick={(connId) => handleConnectionBoxClick(connId)}
+                      onConnectionNameClick={handleConnectionNameClick}
+                      highlightedConnectionId={highlightedConnectionId || primaryFilteredConnection?.id}
+                      highlightedConnectionIds={filteredConnections}
+                      showPoints={false}
+                      showAvpaRace={false}
+                      matchupNumber={index + 1}
+                      onCompareClick={() => {
+                        setSelectedMatchupForComparison(matchup);
+                        setIsComparisonModalOpen(true);
+                      }}
+                    />
+                  </div>
+                );
+              })
             )}
               </div>
             </div>
           </Card>
         </div>
-        
+
         {/* Right Panel - Lineup/Selections */}
         <div className="w-80 flex-shrink-0 flex flex-col h-full min-h-0">
           <Card className="bg-[var(--surface-1)] rounded-lg shadow-lg border border-[var(--content-15)] h-full flex flex-col overflow-hidden">
@@ -340,10 +738,14 @@ export default function MatchupsPage() {
                   selectedPicks.map((pick) => (
                     <div
                       key={pick!.matchupId}
-                      className="bg-[var(--surface-1)] rounded-lg p-2 border border-[var(--chip-outline)] relative hover:shadow-sm transition-shadow"
+                      onClick={() => handlePickClick(pick!.matchupId, pick!.chosen)}
+                      className="bg-[var(--surface-1)] rounded-lg p-2 border border-[var(--chip-outline)] relative hover:shadow-sm transition-shadow cursor-pointer hover:border-[var(--brand)]"
                     >
                       <button
-                        onClick={() => removePick(pick!.matchupId)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePick(pick!.matchupId);
+                        }}
                         className="absolute top-1.5 right-1.5 text-gray-400 hover:text-gray-600"
                       >
                         <X className="w-3 h-3" />
@@ -356,7 +758,7 @@ export default function MatchupsPage() {
                   ))
                 )}
               </div>
-          </div>
+            </div>
           
           {/* Entry Amount - Always Visible */}
           <div className="flex-shrink-0 px-4 py-4 border-t border-[var(--content-15)]">
@@ -435,7 +837,19 @@ export default function MatchupsPage() {
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-1">
                             <div className="text-xs font-semibold text-gray-700">Flex</div>
-                            <Info className="w-3 h-3 text-gray-400" />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3 h-3 text-gray-400 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-sm">
+                                    Flex play allows you to miss one pick and still win, but with reduced payout.
+                                    Perfect for when you want a safety net on your selections.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </div>
                           <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                             isFlex
@@ -484,15 +898,15 @@ export default function MatchupsPage() {
           </Card>
         </div>
       </div>
-      
+
       {/* Connection Modal */}
-      {selectedConnection && (
-        <ConnectionModal
-          connection={selectedConnection}
-          isOpen={isConnectionModalOpen}
-          onClose={() => {
-            setIsConnectionModalOpen(false);
-            setSelectedConnection(null);
+      {selectedConnectionForModal && (
+      <ConnectionModal
+        connection={selectedConnectionForModal}
+        isOpen={isConnectionModalOpen}
+        onClose={() => {
+          setIsConnectionModalOpen(false);
+          setSelectedConnectionForModal(null);
           }}
         />
       )}

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Round, Matchup, Connection } from "@/types";
 import { matchupWinner } from "@/lib/scoring";
 import { MatchupModal } from "@/components/modals/MatchupModal";
@@ -15,6 +17,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 
 export default function ResultsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { rounds, bankroll, connections, regenerateMatchups, tolerance } = useApp();
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
   const [selectedPick, setSelectedPick] = useState<{
@@ -133,7 +136,9 @@ export default function ResultsPage() {
     return conns;
   };
 
+
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
@@ -330,5 +335,6 @@ export default function ResultsPage() {
         />
       )}
     </div>
+    </ProtectedRoute>
   );
 }

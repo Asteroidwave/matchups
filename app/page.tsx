@@ -1,15 +1,40 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Trophy, TrendingUp, Zap, Shield, ArrowRight, Users, DollarSign } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+  
+  // Redirect to matchups if authenticated, otherwise to login
+  useEffect(() => {
+    if (!isLoading) {
+      if (user) {
+        router.push('/matchups');
+      } else {
+        router.push('/login');
+      }
+    }
+  }, [user, isLoading, router]);
+  
+  // Show loading while checking auth
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
+        <div className="text-[var(--text-primary)]">Loading...</div>
+      </div>
+    );
+  }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
@@ -33,7 +58,7 @@ export default function HomePage() {
             
             <div className="flex gap-4 justify-center mb-12">
               <Button
-                onClick={() => router.push("/matchups")}
+                onClick={() => router.push("/lobby")}
                 size="lg"
                 className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-8 py-6 text-lg shadow-xl"
               >
@@ -124,7 +149,7 @@ export default function HomePage() {
                 <div>
                   <h3 className="font-bold text-gray-900 mb-2">Matchup Scoring</h3>
                   <p className="text-gray-600">
-                    A set wins if its total points exceed the opponent's total points. Points come from race finishes (1st, 2nd, 3rd place).
+                    A set wins if its total points exceed the opponent&apos;s total points. Points come from race finishes (1st, 2nd, 3rd place).
                   </p>
                 </div>
               </div>
@@ -167,7 +192,7 @@ export default function HomePage() {
             Join the action and test your horse racing knowledge
           </p>
           <Button
-            onClick={() => router.push("/matchups")}
+            onClick={() => router.push("/lobby")}
             size="lg"
             className="bg-gray-900 hover:bg-gray-800 text-white font-bold px-10 py-6 text-lg"
           >
@@ -177,5 +202,6 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+    </ProtectedRoute>
   );
 }

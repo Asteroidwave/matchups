@@ -130,3 +130,29 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.flash-highlight {
+  animation: flash-highlight-fade 520ms ease-out forwards;
+}
+
+.flash-outline {
+  animation: flash-outline-fade 520ms ease-out forwards;
+}
+
+@keyframes flash-highlight-fade {
+  0% {
+    background-color: rgba(16, 185, 129, 0.3);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+@keyframes flash-outline-fade {
+  0% {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
