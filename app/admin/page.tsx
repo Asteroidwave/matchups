@@ -6,11 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Plus, Users, DollarSign, Calendar, MapPin } from "lucide-react";
+import { Shield, Plus, Users, DollarSign, Calendar, MapPin, Radio } from "lucide-react";
 import { CreateContestForm } from "@/components/admin/CreateContestForm";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ContestManagement } from "@/components/admin/ContestManagement";
 import { TrackManagement } from "@/components/admin/TrackManagement";
+import { SimulationPanel } from "@/components/admin/SimulationPanel";
 
 export default function AdminPage() {
   const { profile } = useAuth();
@@ -35,7 +36,7 @@ export default function AdminPage() {
           </div>
 
           <Tabs defaultValue="contests" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="contests">
                 <Calendar className="w-4 h-4 mr-2" />
                 Contests
@@ -43,6 +44,10 @@ export default function AdminPage() {
               <TabsTrigger value="tracks">
                 <MapPin className="w-4 h-4 mr-2" />
                 Tracks
+              </TabsTrigger>
+              <TabsTrigger value="simulation">
+                <Radio className="w-4 h-4 mr-2" />
+                Simulation
               </TabsTrigger>
               <TabsTrigger value="users">
                 <Users className="w-4 h-4 mr-2" />
@@ -86,6 +91,10 @@ export default function AdminPage() {
               <Card className="p-6">
                 <TrackManagement />
               </Card>
+            </TabsContent>
+
+            <TabsContent value="simulation" className="space-y-6">
+              <SimulationPanel />
             </TabsContent>
 
             <TabsContent value="users" className="space-y-6">

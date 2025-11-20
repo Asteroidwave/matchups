@@ -12,19 +12,37 @@ export default function HomePage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   
-  // Redirect to matchups if authenticated, otherwise to login
+  // Redirect to login if not authenticated (with timeout to prevent infinite loading)
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        router.push('/matchups');
-      } else {
+    // Set a maximum wait time of 5 seconds
+    const timeout = setTimeout(() => {
+      if (!user) {
+        console.warn('⏰ Auth check timeout - redirecting to login');
         router.push('/login');
       }
+    }, 5000);
+
+    if (!isLoading && !user) {
+      clearTimeout(timeout);
+      router.push('/login');
     }
+
+    return () => clearTimeout(timeout);
   }, [user, isLoading, router]);
   
-  // Show loading while checking auth
-  if (isLoading || !user) {
+  // Show loading only briefly - then show content if user exists
+  // This prevents infinite loading if profile fetch is slow
+  if (isLoading && !user) {
+    return (
+      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
+        <div className="text-[var(--text-primary)]">Loading...</div>
+      </div>
+    );
+  }
+
+  // If we have a user but still loading profile, show the page anyway
+  // The profile will load in the background
+  if (!user) {
     return (
       <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
         <div className="text-[var(--text-primary)]">Loading...</div>
@@ -58,7 +76,7 @@ export default function HomePage() {
             
             <div className="flex gap-4 justify-center mb-12">
               <Button
-                onClick={() => router.push("/lobby")}
+                onClick={() => router.push("/matchups")}
                 size="lg"
                 className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold px-8 py-6 text-lg shadow-xl"
               >
@@ -192,7 +210,7 @@ export default function HomePage() {
             Join the action and test your horse racing knowledge
           </p>
           <Button
-            onClick={() => router.push("/lobby")}
+            onClick={() => router.push("/matchups")}
             size="lg"
             className="bg-gray-900 hover:bg-gray-800 text-white font-bold px-10 py-6 text-lg"
           >

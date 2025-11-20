@@ -1,89 +1,301 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Connection, Starter } from "@/types";
 import { Card } from "@/components/ui/card";
+
+interface ConnectionColor {
+  bg: string;
+  bgLight: string;
+  border: string;
+  text: string;
+  textLight: string;
+}
 
 interface StartersWindowProps {
   readonly connections: Connection[];
   readonly selectedConnection: Connection | null;
+  readonly selectedConnectionIds?: Set<string>; // Multi-select support
+  readonly connectionColorMap?: Map<string, ConnectionColor>; // Map of connection ID to color
   readonly onConnectionClick: (connection: Connection | null) => void;
   readonly onConnectionBoxClick?: (connection: Connection) => void;
   readonly matchups?: Array<{ setA: { connections: Connection[] }; setB: { connections: Connection[] } }>;
   readonly onConnectionClickToMatchup?: (connectionId: string, fromConnectedHorsesView: boolean) => void;
+  readonly activeMatchupType?: string;
+  readonly onRemoveConnectionFilter?: (connectionId: string) => void;
+  readonly onClearAllFilters?: (options?: { keepConnectedView?: boolean }) => void;
+  readonly viewMode: "horses" | "connected";
+  readonly onViewModeChange?: (mode: "horses" | "connected") => void;
+  readonly selectedTrack?: string; // Track selected from matchups page
 }
+
+const DEFAULT_TRACK_COLOR = { bg: "bg-slate-500/10", border: "border-slate-500", text: "text-slate-700" };
 
 const trackColors: Record<string, { bg: string; border: string; text: string }> = {
   BAQ: { bg: "bg-blue-500/10", border: "border-blue-500", text: "text-blue-700" },
   GP: { bg: "bg-green-500/10", border: "border-green-500", text: "text-green-700" },
   KEE: { bg: "bg-purple-500/10", border: "border-purple-500", text: "text-purple-700" },
   SA: { bg: "bg-red-500/10", border: "border-red-500", text: "text-red-700" },
+  CD: { bg: "bg-yellow-500/10", border: "border-yellow-500", text: "text-yellow-700" },
+  DMR: { bg: "bg-indigo-500/10", border: "border-indigo-500", text: "text-indigo-700" },
+  LRL: { bg: "bg-pink-500/10", border: "border-pink-500", text: "text-pink-700" },
+  MNR: { bg: "bg-orange-500/10", border: "border-orange-500", text: "text-orange-700" },
+  IND: { bg: "bg-sky-500/10", border: "border-sky-500", text: "text-sky-700" },
+};
+
+const ROLE_BADGE_STYLES: Record<"jockey" | "trainer" | "sire", { label: string; className: string }> = {
+  jockey: { label: "J", className: "bg-blue-600 text-white" },
+  trainer: { label: "T", className: "bg-green-600 text-white" },
+  sire: { label: "S", className: "bg-amber-500 text-white" },
 };
 
 export function StartersWindow({
   connections,
   selectedConnection,
+  selectedConnectionIds = new Set(),
+  connectionColorMap = new Map(),
   onConnectionClick,
   onConnectionBoxClick,
   matchups = [],
   onConnectionClickToMatchup,
+  activeMatchupType = "all",
+  onRemoveConnectionFilter,
+  onClearAllFilters,
+  viewMode,
+  onViewModeChange,
+  selectedTrack: selectedTrackProp,
 }: StartersWindowProps) {
-  const [selectedTrack, setSelectedTrack] = useState<string>("ALL");
-  const [viewMode, setViewMode] = useState<"horses" | "connected">("horses");
+  // Debug: log when viewMode prop changes
+  useEffect(() => {
+    console.log('[StartersWindow] viewMode prop changed to:', viewMode);
+  }, [viewMode]);
   
-  // Get all connection IDs that are in matchups (for "Connected Horses" filter)
-  const matchupConnectionIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const matchup of matchups) {
-      for (const conn of matchup.setA.connections) {
-        ids.add(conn.id);
-      }
-      for (const conn of matchup.setB.connections) {
-        ids.add(conn.id);
+  // Get selected track from sessionStorage (set in lobby)
+  const selectedTrackFromLobby = typeof window !== 'undefined' ? sessionStorage.getItem('selectedTrack') : null;
+  const selectedTracksStored = typeof window !== 'undefined'
+    ? sessionStorage.getItem('selectedTracks') || sessionStorage.getItem('selectedTrackList')
+    : null;
+  const selectedDateFromLobby = typeof window !== 'undefined' ? sessionStorage.getItem('selectedDate') : null;
+
+  const trackSplitRegex = /[,\|\+]/;
+  const multiTrackTokens = new Set(["ALL", "ALL_TRACKS", "MULTI"]);
+
+  const parseTrackSelection = (value?: string | null): string[] => {
+    if (!value) return [];
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.toLowerCase() === "null") return [];
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => (typeof item === "string" ? item.trim().toUpperCase() : ""))
+            .filter(Boolean);
+        }
+      } catch {
+        // fall through to other parsing strategies
       }
     }
-    return ids;
+    if (trackSplitRegex.test(trimmed)) {
+      return trimmed
+        .split(trackSplitRegex)
+        .map((token) => token.trim().toUpperCase())
+        .filter(Boolean);
+    }
+    if (trimmed.includes(" ")) {
+      return trimmed
+        .split(" ")
+        .map((token) => token.trim().toUpperCase())
+        .filter(Boolean);
+    }
+    return [trimmed.toUpperCase()];
+  };
+
+  const parsedStoredTracks = parseTrackSelection(selectedTracksStored);
+  const parsedLobbyTrack = parseTrackSelection(selectedTrackFromLobby);
+  const normalizedTrackList = parsedStoredTracks.length > 0 ? parsedStoredTracks : parsedLobbyTrack;
+
+  const isMultiTrackSelection =
+    normalizedTrackList.length > 1 ||
+    (selectedTrackFromLobby
+      ? multiTrackTokens.has(selectedTrackFromLobby.trim().toUpperCase())
+      : false);
+
+  // Use prop if provided, otherwise fall back to sessionStorage
+  const [selectedTrack, setSelectedTrack] = useState<string>(
+    selectedTrackProp 
+      ? (selectedTrackProp === 'all' ? 'ALL' : selectedTrackProp.toUpperCase())
+      : (!isMultiTrackSelection && selectedTrackFromLobby
+      ? selectedTrackFromLobby
+          : "ALL")
+  );
+  
+  // Update selectedTrack when prop changes
+  useEffect(() => {
+    if (selectedTrackProp) {
+      const normalized = selectedTrackProp === 'all' ? 'ALL' : selectedTrackProp.toUpperCase();
+      if (normalized !== selectedTrack) {
+        setSelectedTrack(normalized);
+      }
+    }
+  }, [selectedTrackProp, selectedTrack]);
+  
+  // For Connected Horses view, we need ALL matchups to determine which connections appear
+  // For regular view, filter by activeMatchupType
+  const filteredMatchups = useMemo(() => {
+    if (!Array.isArray(matchups)) {
+      return [];
+    }
+    // Always use all matchups to determine which connections are in matchups
+    // This ensures Connected Horses view shows all connections that appear in any matchup
+    return matchups;
   }, [matchups]);
   
+  // Get all connection IDs that are in matchups (for "Connected Horses" filter)
+  const matchupConnections = useMemo(() => {
+    const ids = new Set<string>();
+    const keys = new Set<string>();
+
+    const trackConnection = (conn: Connection | undefined | null) => {
+      if (!conn) return;
+      if (conn.id) {
+        ids.add(conn.id);
+      }
+      if (conn.name) {
+        keys.add(`${conn.role}|${conn.name}`);
+      }
+    };
+
+    for (const matchup of filteredMatchups) {
+      for (const conn of matchup.setA.connections) {
+        trackConnection(conn);
+      }
+      for (const conn of matchup.setB.connections) {
+        trackConnection(conn);
+      }
+    }
+
+    return { ids, keys };
+  }, [filteredMatchups]);
+  
   // Get connection ID by name and role (for highlighting in starters)
+  const connectionById = useMemo(() => {
+    const map = new Map<string, Connection>();
+    for (const conn of connections) {
+      if (conn?.id) {
+        map.set(conn.id, conn);
+      }
+    }
+    return map;
+  }, [connections]);
+
+  const selectedConnectionIdArray = useMemo(
+    () => Array.from(selectedConnectionIds || new Set<string>()),
+    [selectedConnectionIds]
+  );
+
+  const selectedConnectionsList = useMemo(() => {
+    const list: Connection[] = [];
+    for (const id of selectedConnectionIdArray) {
+      const conn = connectionById.get(id);
+      if (conn) {
+        list.push(conn);
+      }
+    }
+    if (selectedConnection && selectedConnection.id && !list.some((conn) => conn.id === selectedConnection.id)) {
+      list.unshift(selectedConnection);
+    }
+    return list;
+  }, [selectedConnectionIdArray, connectionById, selectedConnection]);
+
+  const selectedConnectionKeySet = useMemo(() => {
+    const set = new Set<string>();
+    for (const conn of selectedConnectionsList) {
+      if (conn?.name) {
+        set.add(`${conn.role}|${conn.name}`);
+      }
+    }
+    return set;
+  }, [selectedConnectionsList]);
+
+  const hasConnectionFilters = selectedConnectionsList.length > 0;
+
+  const isConnectionSelected = (role: "jockey" | "trainer" | "sire", name?: string | null) => {
+    if (!name) return false;
+    return selectedConnectionKeySet.has(`${role}|${name}`);
+  };
+
+  // Get color for a selected connection by name and role
+  const getConnectionColor = (role: "jockey" | "trainer" | "sire", name?: string | null) => {
+    if (!name) return null;
+    // Try to find connection by name and role
+    const conn = connections.find(c => c.name === name && c.role === role);
+    if (conn?.id && connectionColorMap.has(conn.id)) {
+      const color = connectionColorMap.get(conn.id);
+      return color || null;
+    }
+    // Also check connectionColorMap directly in case connection lookup fails
+    for (const [connId, color] of connectionColorMap.entries()) {
+      const connById = connectionById.get(connId);
+      if (connById?.name === name && connById?.role === role) {
+        return color;
+      }
+    }
+    return null;
+  };
+
+  const shouldHighlightConnected = (role: "jockey" | "trainer" | "sire", name?: string | null) => {
+    if (viewMode !== "connected" || !name) return false;
+    if (!isConnectionInMatchups(name, role)) return false;
+    if (hasConnectionFilters) {
+      return !isConnectionSelected(role, name);
+    }
+    return true;
+  };
+
   const getConnectionIdByName = (name: string, role: "jockey" | "trainer" | "sire") => {
     return connections.find(c => c.name === name && c.role === role)?.id;
   };
   
   // Check if a connection name matches any connection in matchups
   const isConnectionInMatchups = (name: string, role: "jockey" | "trainer" | "sire") => {
+    if (!name) return false;
     const connId = getConnectionIdByName(name, role);
-    return connId ? matchupConnectionIds.has(connId) : false;
+    if (connId && matchupConnections.ids.has(connId)) {
+      return true;
+    }
+    return matchupConnections.keys.has(`${role}|${name}`);
+  };
+
+  const connectionAppearsInMatchups = (conn?: Connection | null) => {
+    if (!conn) return false;
+    if (conn.id && matchupConnections.ids.has(conn.id)) return true;
+    if (conn.name && matchupConnections.keys.has(`${conn.role}|${conn.name}`)) return true;
+    return false;
   };
   
   // Handle view mode changes
   const handleViewModeChange = (mode: "horses" | "connected") => {
+    console.log('[StartersWindow] handleViewModeChange called:', { mode, currentViewMode: viewMode });
+    
     if (mode === "horses") {
-      // Clear all filters when switching to horses view
-      onConnectionClick(null);
-      setViewMode("horses");
-    } else {
-      // Clicking "Connected Horses":
-      // 1. If filtering by a specific connection in connected mode, clear the filter (stay in connected mode)
-      // 2. If already in connected mode showing all connected horses, toggle back to horses
-      // 3. If in horses mode, switch to connected mode (showing all connected horses)
-      if (viewMode === "connected") {
-        if (selectedConnection) {
-          // Filtering by a connection - clear the filter and stay in connected mode
-          onConnectionClick(null);
-          // Stay in connected mode
-        } else {
-          // Already showing all connected horses - toggle back to horses
-          setViewMode("horses");
-          onConnectionClick(null);
-        }
-      } else {
-        // Switch to connected mode (shows all connected horses)
-        setViewMode("connected");
-        // Clear any specific connection filter to show all connected horses
-        onConnectionClick(null);
-      }
+      // Switching to Horses view - just notify parent
+      console.log('[StartersWindow] Calling onViewModeChange with horses');
+      onViewModeChange?.("horses");
+      return;
     }
+
+    // Switching to Connected Horses view
+    if (viewMode === "connected") {
+      // Already in Connected Horses - toggle it off
+      console.log('[StartersWindow] Already in connected, toggling off');
+      onViewModeChange?.("horses");
+      return;
+    }
+
+    // Switch to Connected Horses view - just notify parent
+    console.log('[StartersWindow] Calling onViewModeChange with connected');
+    onViewModeChange?.("connected");
   };
   
   // When selectedConnection changes and we're in horses view, stay in horses view (filter mode)
@@ -91,13 +303,29 @@ export function StartersWindow({
   
   // Handle connection name click in starters panel (when in Connected Horses view)
   const handleConnectionNameClickInStarters = (name: string, role: "jockey" | "trainer" | "sire") => {
-    if (viewMode === "connected" && !selectedConnection) {
-      const connId = getConnectionIdByName(name, role);
-      if (connId && onConnectionClickToMatchup) {
-        // Pass true to indicate this is from Connected Horses view (shouldn't filter starters)
-        onConnectionClickToMatchup(connId, true);
+    const connId = getConnectionIdByName(name, role);
+    if (!connId || !onConnectionClickToMatchup) return;
+
+    const fromConnected = viewMode === "connected";
+    
+    // Add prominent highlight to clicked connection name in starters panel
+    // First, remove any existing click highlights from ALL connections
+    const allClickableElements = document.querySelectorAll('[data-connection-clickable]');
+    allClickableElements.forEach(el => {
+      if (el instanceof HTMLElement) {
+        el.classList.remove('!bg-blue-200', '!border-blue-600', 'shadow-md');
       }
+    });
+    
+    // Then add highlight to clicked connection - find the clickable container
+    const clickedElement = document.querySelector(`[data-connection-clickable="${role}"][data-connection-value="${name}"]`);
+    if (clickedElement instanceof HTMLElement) {
+      // Use a solid light blue background (like the working example)
+      clickedElement.classList.add('!bg-blue-200', '!border-blue-600', 'shadow-md');
+      console.log('[StartersWindow] Highlighted clicked connection:', name);
     }
+    
+    onConnectionClickToMatchup(connId, fromConnected);
   };
   
   // Build role index from connections (records)
@@ -117,43 +345,106 @@ export function StartersWindow({
     return map;
   }, [connections]);
   
-  // Get all unique tracks
-  const allTracks = ["BAQ", "GP", "KEE", "SA"];
+  // Get all unique tracks from connections
+  const allTracks = useMemo(() => {
+    const tracks = new Set<string>();
+    for (const conn of connections) {
+      for (const track of conn.trackSet) {
+        tracks.add(track);
+      }
+    }
+    return Array.from(tracks).sort();
+  }, [connections]);
+  
+  // If a single track is selected from lobby, lock track filters
+  const showOnlyOneTrack = !isMultiTrackSelection && normalizedTrackList.length === 1;
+
+  useEffect(() => {
+    if (selectedTrack !== "ALL" && !allTracks.includes(selectedTrack)) {
+      setSelectedTrack("ALL");
+    }
+  }, [selectedTrack, allTracks]);
   
   // Get all starters, filtered by selected connection if filtering
-  const allStarters: (Starter & { connectionType: "jockey" | "trainer" | "sire"; connectionName: string })[] = [];
+  const allStarters = useMemo(() => {
+    const starters: (Starter & { connectionType: "jockey" | "trainer" | "sire"; connectionName: string })[] = [];
+    
+    console.log('[StartersWindow] Building allStarters with viewMode:', viewMode);
   
   for (const conn of connections) {
-    // If "Connected Horses" view is active, only show connections that are in matchups
-    if (viewMode === "connected" && !selectedConnection && !matchupConnectionIds.has(conn.id)) {
-      continue;
-    }
-    
+      // If "Connected Horses" view is active, only show connections that are in matchups
+      if (viewMode === "connected") {
+        const appearsInMatchups = connectionAppearsInMatchups(conn);
+        console.log('[StartersWindow] Checking connection:', { 
+          name: conn.name, 
+          role: conn.role, 
+          appearsInMatchups,
+          connId: conn.id,
+          hasConnId: matchupConnections.ids.has(conn.id),
+          hasConnKey: matchupConnections.keys.has(`${conn.role}|${conn.name}`)
+        });
+        if (!appearsInMatchups) {
+          continue;
+        }
+      }
+      
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
       
       // Filter by track
       if (selectedTrack !== "ALL" && starter.track !== selectedTrack) continue;
       
-      // Filter by selected connection if filtering (works in both horses and connected view)
-      if (selectedConnection) {
-        const matchesConnection = 
-          (selectedConnection.role === "jockey" && starter.jockey === selectedConnection.name) ||
-          (selectedConnection.role === "trainer" && starter.trainer === selectedConnection.name) ||
-          (selectedConnection.role === "sire" && (starter.sire1 === selectedConnection.name || starter.sire2 === selectedConnection.name));
-        
-        if (!matchesConnection) {
+        // Filter by selected connection(s) if filtering (works in both horses and connected view)
+        // Support both single-select (selectedConnection) and multi-select (selectedConnectionIds)
+        if (selectedConnection || selectedConnectionIds.size > 0) {
+          let matchesAnyConnection = false;
+          
+          // Check single-select first
+          if (selectedConnection) {
+            const matchesConnection = 
+              (selectedConnection.role === "jockey" && starter.jockey === selectedConnection.name) ||
+              (selectedConnection.role === "trainer" && starter.trainer === selectedConnection.name) ||
+              (selectedConnection.role === "sire" && (starter.sire1 === selectedConnection.name || starter.sire2 === selectedConnection.name));
+            
+            if (matchesConnection) {
+              matchesAnyConnection = true;
+            }
+          }
+          
+          // Check multi-select
+          if (!matchesAnyConnection && selectedConnectionIds.size > 0) {
+            for (const connId of selectedConnectionIds) {
+              const conn = connections.find(c => c.id === connId);
+              if (!conn) continue;
+              
+              const matchesConnection = 
+                (conn.role === "jockey" && starter.jockey === conn.name) ||
+                (conn.role === "trainer" && starter.trainer === conn.name) ||
+                (conn.role === "sire" && (starter.sire1 === conn.name || starter.sire2 === conn.name));
+              
+              if (matchesConnection) {
+                matchesAnyConnection = true;
+                break;
+              }
+            }
+          }
+          
+          if (!matchesAnyConnection) {
           continue;
         }
       }
       
-      allStarters.push({
+        starters.push({
         ...starter,
         connectionType: conn.role,
         connectionName: conn.name,
       });
     }
   }
+    
+    console.log('[StartersWindow] Built allStarters:', starters.length, 'horses');
+    return starters;
+  }, [connections, viewMode, selectedTrack, selectedConnection, selectedConnectionIds, matchupConnections, connectionAppearsInMatchups]);
   
   // Group by race
   const racesMap = new Map<string, typeof allStarters>();
@@ -168,11 +459,11 @@ export function StartersWindow({
   const races = Array.from(racesMap.entries()).sort(([a], [b]) => {
     const [trackA, raceA] = a.split("-");
     const [trackB, raceB] = b.split("-");
-    const trackOrder = ["BAQ", "GP", "KEE", "SA"];
-    const trackDiff = trackOrder.indexOf(trackA) - trackOrder.indexOf(trackB);
+    // Sort tracks alphabetically (same order as track buttons: AQU, CD, GP, LRL, etc.)
+    const trackDiff = trackA.localeCompare(trackB);
     return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
   }).map(([key, starters]) => {
-    // Keep first-seen order within the race and assign posts sequentially 1..N
+    // Remove duplicates (keep first-seen order)
     const seen = new Set<string>();
     const ordered: typeof starters = [] as any;
     for (const s of starters) {
@@ -180,19 +471,62 @@ export function StartersWindow({
       seen.add(s.horseName);
       ordered.push(s);
     }
-    let post = 1;
-    for (const s of ordered) {
-      // @ts-expect-error transient field used in view only
-      s.__post = post++;
-    }
+    
+    // Sort by program_number (1, 2, 3...)
+    // Horses without program_number go to the end
+    ordered.sort((a, b) => {
+      const aNum = a.program_number;
+      const bNum = b.program_number;
+      
+      // If both have numbers, sort numerically
+      if (aNum && bNum) {
+        return aNum - bNum;
+      }
+      // If only one has a number, it comes first
+      if (aNum && !bNum) return -1;
+      if (!aNum && bNum) return 1;
+      // If neither has a number, maintain order
+      return 0;
+    });
+    
     return [key, ordered] as [string, typeof starters];
   });
  
-  const getPostBadge = (post?: number) => {
-    if (!post) return "bg-gray-300 text-gray-700";
-    const palette = ["bg-green-500", "bg-blue-500", "bg-red-500", "bg-amber-500", "bg-purple-500", "bg-teal-500"];
-    const color = palette[(post - 1) % palette.length];
-    return `${color} text-white`;
+  // Import program number colors utility
+  const getProgramNumberBadge = (programNumber?: number | null) => {
+    if (!programNumber || programNumber < 1) {
+      return { bg: "bg-gray-300", text: "text-gray-700", number: null };
+    }
+    
+    // Standard saddlecloth colors (exact hex values from racing app)
+    const colors: Record<number, { bg: string; text: string }> = {
+      1: { bg: "bg-[#DC2626]", text: "text-white" },        // Red (#DC2626) - white text
+      2: { bg: "bg-[#F0FFFF]", text: "text-black" },        // Light Blue (#F0FFFF) - black text
+      3: { bg: "bg-[#005CE8]", text: "text-white" },       // Blue (#005CE8) - white text
+      4: { bg: "bg-[#ECC94B]", text: "text-black" },     // Yellow (#ECC94B) - black text
+      5: { bg: "bg-[#16A34A]", text: "text-white" },      // Green (#16A34A) - white text
+      6: { bg: "bg-[#800080]", text: "text-white" },          // Purple (#800080) - white text
+      7: { bg: "bg-[#F97316]", text: "text-black" },     // Orange (#F97316) - black text
+      8: { bg: "bg-[#F9A8D4]", text: "text-black" },      // Pink (#F9A8D4) - black text
+      9: { bg: "bg-[#99F6E4]", text: "text-black" },        // Light Teal (#99F6E4) - black text
+      10: { bg: "bg-[#800080]", text: "text-white" },    // Purple (#800080) - white text
+      11: { bg: "bg-[#000080]", text: "text-white" },     // Navy Blue (#000080) - white text
+      12: { bg: "bg-[#36CD30]", text: "text-black" },       // Bright Green (#36CD30) - black text
+      13: { bg: "bg-[#8A2CE6]", text: "text-white" },    // Violet (#8A2CE6) - white text
+      14: { bg: "bg-[#817E01]", text: "text-white" },     // Dark Olive (#817E01) - white text
+      15: { bg: "bg-[#ABA96F]", text: "text-black" },   // Khaki (#ABA96F) - black text
+      16: { bg: "bg-[#2A557B]", text: "text-white" },   // Dark Blue (#2A557B) - white text
+    };
+    
+    // Use standard color if available, otherwise cycle
+    if (programNumber <= 15 && colors[programNumber]) {
+      return { ...colors[programNumber], number: programNumber };
+    }
+    
+    // For numbers > 15, cycle through colors
+    const colorArray = Object.values(colors);
+    const index = (programNumber - 1) % colorArray.length;
+    return { ...colorArray[index], number: programNumber };
   };
   
   return (
@@ -201,20 +535,12 @@ export function StartersWindow({
       <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">Starters</h2>
-          {selectedConnection && (
-            <button
-              onClick={() => handleViewModeChange("horses")}
-              className="text-sm text-[var(--btn-link)] hover:opacity-90"
-            >
-              Clear All
-            </button>
-          )}
         </div>
       </div>
       
       {/* Divider */}
       <div className="border-b border-[var(--content-15)]"></div>
-      
+        
       {/* All Buttons on Same Line */}
       <div className="flex-shrink-0 px-4 py-2">
         <div className="flex items-center gap-1.5 flex-nowrap">
@@ -240,97 +566,103 @@ export function StartersWindow({
             Connected Horses
           </button>
           
-          {/* Visual Separator */}
-          <div className="w-px h-4 bg-[var(--content-15)] mx-01"></div>
-          
-          {/* Track Filter Buttons */}
-          <button
-            onClick={() => setSelectedTrack("ALL")}
-            className={`px-2 py-1 rounded text-[13px] font-medium transition-colors whitespace-nowrap ${
-              selectedTrack === "ALL"
-                ? "bg-[var(--btn-default)] text-white"
-                : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
-            }`}
-          >
-            All Tracks
-          </button>
-          {allTracks.map((track) => {
-            const color = trackColors[track];
-            return (
-              <button
-                key={track}
-                onClick={() => setSelectedTrack(track)}
-                className={`px-2 py-1 rounded text-[13px] font-medium transition-colors whitespace-nowrap ${
-                  selectedTrack === track
-                    ? `${color.bg} ${color.text} border-2 ${color.border}`
-                    : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
-                }`}
-              >
-                {track}
-              </button>
-            );
-          })}
         </div>
         
-        {selectedConnection && (
-          <div className="mt-3 px-3 py-2 bg-[var(--blue-50)] rounded-md border border-[var(--content-15)]">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium text-[var(--text-tertiary)]">Filtering by:</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                    selectedConnection.role === "jockey" 
-                      ? "bg-blue-600 text-white"
-                      : selectedConnection.role === "trainer"
-                      ? "bg-green-600 text-white"
-                      : "bg-amber-600 text-white"
-                  }`}>
-                    {selectedConnection.role}
-                  </span>
-                </div>
-                <div className="font-semibold text-[14px] text-[var(--brand)]">
-                  {selectedConnection.name}
-                </div>
-                {selectedConnection.trackSet.length > 0 && (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <span className="text-[11px] text-[var(--text-tertiary)]">Active on</span>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {selectedConnection.trackSet.map((track) => {
-                        const color = trackColors[track];
-                        return (
-                          <span
-                            key={track}
-                            className={`px-1.5 py-0.5 rounded text-[8px] font-bold text-white ${color.bg.replace('/10', '')}`}
-                          >
-                            {track}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+        {hasConnectionFilters && (
+          <div className="mt-3 px-3 py-2 bg-[var(--blue-50)]/40 rounded-md border border-[var(--content-15)]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wide">
+                Filtering by
+              </span>
               <button
-                onClick={() => onConnectionClick(null)}
-                className="ml-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                aria-label="Clear filter"
+                onClick={() => {
+                  onClearAllFilters?.({ keepConnectedView: false });
+                  onConnectionClick(null);
+                  onViewModeChange?.("horses");
+                }}
+                className="text-xs text-[var(--btn-link)] hover:opacity-80 transition-colors"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                Clear all
               </button>
             </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {selectedConnectionsList.map((conn) => {
+                const badge = ROLE_BADGE_STYLES[conn.role];
+                return (
+                  <span
+                    key={conn.id}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--content-15)] bg-white/70 px-3 py-1 text-xs font-medium text-[var(--text-primary)] shadow-sm"
+                  >
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                    <span className="truncate max-w-[140px]">{conn.name}</span>
+                    {onRemoveConnectionFilter && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRemoveConnectionFilter(conn.id);
+                          if (selectedConnectionsList.length <= 1) {
+                            onViewModeChange?.("horses");
+                          }
+                        }}
+                        className="text-[var(--text-tertiary)] hover:text-[var(--brand)] transition-colors"
+                        aria-label={`Remove ${conn.name}`}
+                      >
+                        <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M9 3L3 9M3 3L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+              </div>
           </div>
         )}
       </div>
       
       {/* Race List */}
-      <div className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
+      <div 
+        className="flex-1 overflow-y-auto min-h-0" 
+        style={{ 
+          overscrollBehavior: 'contain', 
+          scrollBehavior: 'auto',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
         <div className="flex flex-col">
-          {races.map(([key, starters]) => {
-            const [track, raceNum] = key.split("-");
-            const trackFull = { BAQ: "Belmont", GP: "Gulfstream Park", KEE: "Keeneland", SA: "Santa Anita" } as const;
-            const dateStr = "October 3, 2025";
+        {races.map(([key, starters]) => {
+          const [track, raceNum] = key.split("-");
+            const trackFull = { 
+              BAQ: "Belmont", 
+              GP: "Gulfstream Park", 
+              KEE: "Keeneland", 
+              SA: "Santa Anita",
+              CD: "Churchill Downs",
+              DMR: "Del Mar",
+              LRL: "Laurel Park",
+              MNR: "Mountaineer Park",
+              IND: "Horseshoe Indianapolis"
+            } as const;
+            
+            // Format date from sessionStorage or use default
+            let dateStr = "November 2, 2025"; // Default
+            if (selectedDateFromLobby) {
+              try {
+                const date = new Date(selectedDateFromLobby);
+                if (!isNaN(date.getTime())) {
+                  dateStr = date.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  });
+                }
+              } catch (e) {
+                // Keep default if parsing fails
+              }
+            }
+            
             return (
               <div key={key} className="w-full">
                 {/* Grey band header */}
@@ -344,156 +676,232 @@ export function StartersWindow({
                   const trainer = starter.trainer || roles.trainer || "Unknown";
                   const sireCandidates = [starter.sire1, starter.sire2, ...roles.sires].filter(Boolean) as string[];
                   const [sire1, sire2] = Array.from(new Set(sireCandidates)).slice(0, 2);
-                  // @ts-expect-error transient
-                  const post = starter.__post as number | undefined;
-                  return (
-                    <div
+                  
+                  // Use program_number (saddlecloth number) - doesn't change if horses scratch
+                  const programNumber = starter.program_number;
+                  const badgeStyle = getProgramNumberBadge(programNumber);
+                  const jockeySelected = isConnectionSelected("jockey", jockey);
+                  const trainerSelected = isConnectionSelected("trainer", trainer);
+                  const sire1Selected = isConnectionSelected("sire", sire1);
+                  const sire2Selected = isConnectionSelected("sire", sire2);
+                  const jockeyConnectedHighlight = shouldHighlightConnected("jockey", jockey);
+                  const trainerConnectedHighlight = shouldHighlightConnected("trainer", trainer);
+                  const sire1ConnectedHighlight = shouldHighlightConnected("sire", sire1);
+                  const sire2ConnectedHighlight = shouldHighlightConnected("sire", sire2);
+                  // Only make connections clickable if NOT filtered from players panel
+                  // When hasConnectionFilters is true, names are highlighted but NOT clickable
+                  // Connection names are ONLY clickable when:
+                  // 1. Connected Horses view is active (viewMode === "connected")
+                  // 2. The connection is highlighted (appears in matchups)
+                  // 3. No filters are active from Players panel
+                  const jockeyInteractive = viewMode === "connected" && !hasConnectionFilters && jockeyConnectedHighlight;
+                  const trainerInteractive = viewMode === "connected" && !hasConnectionFilters && trainerConnectedHighlight;
+                  const sire1Interactive = viewMode === "connected" && !hasConnectionFilters && !!sire1 && sire1ConnectedHighlight;
+                  const sire2Interactive = viewMode === "connected" && !hasConnectionFilters && !!sire2 && sire2ConnectedHighlight;
+                  
+                  // Get colors for selected connections
+                  const jockeyColor = getConnectionColor("jockey", jockey);
+                  const trainerColor = getConnectionColor("trainer", trainer);
+                  const sire1Color = getConnectionColor("sire", sire1);
+                  const sire2Color = getConnectionColor("sire", sire2);
+          
+          return (
+            <div
                       key={`${starter.track}-${starter.race}-${starter.horseName}`}
                       className={`border-b border-[var(--content-15)] flex items-center gap-3 pl-5 pr-0 py-1 ${idx === starters.length - 1 ? "" : ""}`}
                     >
-                      {/* Left block: PP + odds + horse name */}
+                      {/* Left block: Program Number (saddlecloth) + odds + horse name */}
                       <div className="w-[132px] shrink-0 flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-1">
-                          <div className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${getPostBadge(post)}`}>{post ?? ""}</div>
+                          <div className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${badgeStyle.bg} ${badgeStyle.text}`}>
+                            {programNumber ?? ""}
+                          </div>
                           <div className="text-[12px] leading-[18px] text-[var(--text-primary)] font-medium">{starter.mlOddsFrac || "—"}</div>
-                        </div>
+              </div>
                         <div className="px-1">
-                          <div className="text-[12px] leading-[18px] font-semibold text-[var(--text-primary)] truncate">{starter.horseName}</div>
-                        </div>
+                          <div className="flex items-center gap-1">
+                            <div className="text-[12px] leading-[18px] font-semibold text-[var(--text-primary)] truncate">{starter.horseName}</div>
+                            {starter.isAE && (
+                              <span className="text-[10px] leading-[14px] font-semibold bg-yellow-100 text-yellow-800 px-1 rounded">AE</span>
+                            )}
+                          </div>
+                    </div>
                       </div>
                       {/* Right block: connections in 2 rows */}
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex w-full">
-                          <div 
-                            role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? "button" : undefined}
-                            tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                          <div
+                            role={jockeyInteractive ? "button" : undefined}
+                            tabIndex={jockeyInteractive ? 0 : undefined}
+                            data-connection-clickable="jockey"
+                            data-connection-value={jockey}
+                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 transition-colors rounded ${
+                              jockeySelected && jockeyColor
+                                ? `${jockeyColor.bgLight} border ${jockeyColor.border} ring-1 ${jockeyColor.border} text-white shadow-sm`
+                                : jockeySelected
+                                ? "bg-[var(--brand)] text-white shadow-sm"
+                                : jockeyConnectedHighlight
+                                ? "bg-[var(--blue-50)] border border-[var(--brand)] ring-1 ring-[var(--brand)]/20"
                                 : ""
-                            }`}
-                            onClick={() => handleConnectionNameClickInStarters(jockey, "jockey")}
+                            } ${jockeyInteractive ? 'cursor-pointer' : ''}`}
+                            onClick={jockeyInteractive ? () => handleConnectionNameClickInStarters(jockey, "jockey") : undefined}
                             onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")) {
+                              if ((e.key === "Enter" || e.key === " ") && jockeyInteractive) {
                                 e.preventDefault();
                                 handleConnectionNameClickInStarters(jockey, "jockey");
                               }
                             }}
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
+                              jockeySelected && jockeyColor
+                                ? `${jockeyColor.bg} text-white`
+                                : jockeySelected
                                 ? "bg-white text-[var(--brand)]"
+                                : jockeyConnectedHighlight
+                                ? "bg-[var(--brand)] text-white"
                                 : "bg-[var(--blue-50)] text-[var(--brand)]"
                             }`}>J</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
+                              jockeySelected && jockeyColor
+                                ? jockeyColor.text
+                                : jockeySelected
                                 ? "text-white"
+                                : jockeyConnectedHighlight
+                                ? "text-[var(--brand)]"
                                 : "text-[var(--text-primary)]"
                             }`}>{jockey}</span>
                           </div>
-                          <div 
-                            role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? "button" : undefined}
-                            tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                          <div
+                            role={trainerInteractive ? "button" : undefined}
+                            tabIndex={trainerInteractive ? 0 : undefined}
+                            data-connection-clickable="trainer"
+                            data-connection-value={trainer}
+                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 transition-colors rounded ${
+                              trainerSelected && trainerColor
+                                ? `${trainerColor.bgLight} border ${trainerColor.border} ring-1 ${trainerColor.border} rounded text-white shadow-sm`
+                                : trainerSelected
+                                ? "bg-[var(--brand)] rounded text-white shadow-sm"
+                                : trainerConnectedHighlight
+                                ? "bg-[var(--blue-50)] border border-[var(--brand)] ring-1 ring-[var(--brand)]/20 rounded"
                                 : ""
                             }`}
-                            onClick={() => handleConnectionNameClickInStarters(trainer, "trainer")}
+                            onClick={trainerInteractive ? () => handleConnectionNameClickInStarters(trainer, "trainer") : undefined}
                             onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")) {
+                              if ((e.key === "Enter" || e.key === " ") && trainerInteractive) {
                                 e.preventDefault();
                                 handleConnectionNameClickInStarters(trainer, "trainer");
                               }
                             }}
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
+                              trainerSelected && trainerColor
+                                ? `${trainerColor.bg} text-white`
+                                : trainerSelected
                                 ? "bg-white text-[var(--brand)]"
+                                : trainerConnectedHighlight
+                                ? "bg-[var(--brand)] text-white"
                                 : "bg-[var(--blue-50)] text-[var(--brand)]"
                             }`}>T</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
+                              trainerSelected && trainerColor
+                                ? trainerColor.text
+                                : trainerSelected
                                 ? "text-white"
+                                : trainerConnectedHighlight
+                                ? "text-[var(--brand)]"
                                 : "text-[var(--text-primary)]"
-                            }`}>{trainer}</span>
+                            }`} data-connection-name data-connection-role="trainer">{trainer}</span>
                           </div>
                         </div>
                         <div className="flex w-full">
                           <div 
-                            role={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? "button" : undefined}
-                            tabIndex={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                            role={sire1Interactive ? "button" : undefined}
+                            tabIndex={sire1Interactive ? 0 : undefined}
+                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 transition-colors ${
+                              sire1Selected && sire1Color
+                                ? `${sire1Color.bgLight} border ${sire1Color.border} ring-1 ${sire1Color.border} rounded text-white shadow-sm`
+                                : sire1Selected
+                                ? "bg-[var(--brand)] rounded text-white shadow-sm"
+                                : sire1ConnectedHighlight
+                                ? "bg-[var(--blue-50)] border border-[var(--brand)] ring-1 ring-[var(--brand)]/20 rounded"
                                 : ""
                             }`}
-                            onClick={() => {
-                              if (sire1) handleConnectionNameClickInStarters(sire1, "sire");
-                            }}
+                            onClick={sire1Interactive && sire1 ? () => handleConnectionNameClickInStarters(sire1, "sire") : undefined}
                             onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1, "sire")) {
+                              if ((e.key === "Enter" || e.key === " ") && sire1Interactive && sire1) {
                                 e.preventDefault();
                                 handleConnectionNameClickInStarters(sire1, "sire");
                               }
                             }}
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
+                              sire1Selected && sire1Color
+                                ? `${sire1Color.bg} text-white`
+                                : sire1Selected
                                 ? "bg-white text-[var(--brand)]"
+                                : sire1ConnectedHighlight
+                                ? "bg-[var(--brand)] text-white"
                                 : "bg-[var(--blue-50)] text-[var(--brand)]"
                             }`}>S</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
+                              sire1Selected && sire1Color
+                                ? sire1Color.text
+                                : sire1Selected
                                 ? "text-white"
+                                : sire1ConnectedHighlight
+                                ? "text-[var(--brand)]"
                                 : "text-[var(--text-primary)]"
-                            }`}>{sire1 || "Unknown"}</span>
+                            }`} data-connection-name data-connection-role="sire">{sire1 || "—"}</span>
                           </div>
                           <div 
-                            role={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? "button" : undefined}
-                            tabIndex={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                            role={sire2Interactive ? "button" : undefined}
+                            tabIndex={sire2Interactive ? 0 : undefined}
+                            data-connection-clickable="sire"
+                            data-connection-value={sire2 || ""}
+                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 transition-colors rounded ${
+                              sire2Selected && sire2Color
+                                ? `${sire2Color.bgLight} border ${sire2Color.border} ring-1 ${sire2Color.border} rounded text-white shadow-sm`
+                                : sire2Selected
+                                ? "bg-[var(--brand)] rounded text-white shadow-sm"
+                                : sire2ConnectedHighlight
+                                ? "bg-[var(--blue-50)] border border-[var(--brand)] ring-1 ring-[var(--brand)]/20 rounded"
                                 : ""
                             }`}
-                            onClick={() => {
-                              if (sire2) handleConnectionNameClickInStarters(sire2, "sire");
-                            }}
+                            onClick={sire2Interactive && sire2 ? () => handleConnectionNameClickInStarters(sire2, "sire") : undefined}
                             onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2, "sire")) {
+                              if ((e.key === "Enter" || e.key === " ") && sire2Interactive && sire2) {
                                 e.preventDefault();
                                 handleConnectionNameClickInStarters(sire2, "sire");
                               }
                             }}
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
+                              sire2Selected && sire2Color
+                                ? `${sire2Color.bg} text-white`
+                                : sire2Selected
                                 ? "bg-white text-[var(--brand)]"
+                                : sire2ConnectedHighlight
+                                ? "bg-[var(--brand)] text-white"
                                 : "bg-[var(--blue-50)] text-[var(--brand)]"
                             }`}>S</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
+                              sire2Selected && sire2Color
+                                ? sire2Color.text
+                                : sire2Selected
                                 ? "text-white"
+                                : sire2ConnectedHighlight
+                                ? "text-[var(--brand)]"
                                 : "text-[var(--text-primary)]"
-                            }`}>{sire2 || "Unknown"}</span>
+                            }`} data-connection-name data-connection-role="sire">{sire2 || "—"}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            );
-          })}
+            </div>
+          );
+        })}
         </div>
       </div>
     </Card>

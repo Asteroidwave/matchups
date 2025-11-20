@@ -1,11 +1,141 @@
 import { Connection, Starter, ConnectionRole, TrackData } from "@/types";
+import { getTrackEntries, getTrackResults } from "./api/backend";
 
-export async function loadTrackData(track: string): Promise<TrackData> {
-  const response = await fetch(`/v0_${track}_ext.json`);
-  if (!response.ok) {
-    throw new Error(`Failed to load ${track} data`);
+export const FALLBACK_TRACKS = ["BAQ", "GP", "KEE", "SA", "CD", "DMR", "LRL", "MNR", "IND"];
+const TRACK_SPLIT_REGEX = /[,\|\+]/;
+
+const sanitizeTrackCode = (track: string) => track.trim().toUpperCase();
+
+function parseTrackList(specifier: string): string[] {
+  const trimmed = specifier.trim();
+  if (!trimmed) return [];
+
+  // JSON array string
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (typeof item === "string" ? sanitizeTrackCode(item) : ""))
+          .filter(Boolean);
+      }
+    } catch (error) {
+      console.warn("Unable to parse track list JSON:", error);
+    }
   }
-  return response.json();
+
+  // Delimiter separated lists
+  if (TRACK_SPLIT_REGEX.test(trimmed)) {
+    return trimmed
+      .split(TRACK_SPLIT_REGEX)
+      .map(sanitizeTrackCode)
+      .filter(Boolean);
+  }
+
+  if (trimmed.includes(" ")) {
+    return trimmed
+      .split(" ")
+      .map(sanitizeTrackCode)
+      .filter(Boolean);
+  }
+
+  return [sanitizeTrackCode(trimmed)];
+}
+
+function normalizeTrackSelection(selected: string | string[] | null | undefined): string[] {
+  if (Array.isArray(selected)) {
+    return Array.from(new Set(selected.map(sanitizeTrackCode).filter(Boolean)));
+  }
+
+  if (!selected) return [];
+
+  const trimmed = selected.trim();
+  if (!trimmed || trimmed.toLowerCase() === "null") return [];
+
+  if (["ALL", "ALL_TRACKS", "MULTI"].includes(trimmed.toUpperCase())) {
+    return [...FALLBACK_TRACKS];
+  }
+
+  return Array.from(new Set(parseTrackList(trimmed)));
+}
+
+/**
+ * Load track data from backend API
+ */
+export async function loadTrackData(track: string, date?: string): Promise<TrackData> {
+  // Use provided date or default to 2025-11-02 (date we know has data)
+  // TODO: Make this configurable or use a date picker
+  const raceDate = date || '2025-11-02';
+  
+  try {
+    // Fetch entries and results in parallel
+    const [entries, results] = await Promise.all([
+      getTrackEntries(track, raceDate),
+      getTrackResults(track, raceDate).catch(() => []), // Results might not exist yet
+    ]);
+    
+    // Create a map of results by track-race-horse for quick lookup
+    const resultsMap = new Map<string, { points: number; place: number | null }>();
+    for (const result of results) {
+      if (result.starters && Array.isArray(result.starters)) {
+        for (const starter of result.starters) {
+          // Handle nested structure: starter.starter or just starter
+          const st = starter.starter || starter;
+          const horse = st.horse || {};
+          const horseName = (horse.name || '').trim();
+          if (horseName) {
+            const key = `${track}-${result.race}-${horseName}`;
+            const finishPos = st.finishPosition || st.finish || st.place || null;
+            const points = st.points || 0;
+            resultsMap.set(key, { points, place: finishPos });
+          }
+        }
+      }
+    }
+    
+    // Merge entries with results data
+    const records = entries.map((entry: any) => {
+      const key = `${entry.track}-${entry.race}-${entry.horse}`;
+      const resultData = resultsMap.get(key);
+      
+      return {
+        track: entry.track,
+        race: entry.race,
+        horse: entry.horse,
+        jockey: entry.jockey || null,
+        trainer: entry.trainer || null,
+        sire1: entry.sire1 || null,
+        sire2: entry.sire2 || null,
+        ml_odds_frac: entry.ml_odds_frac || null,
+        ml_odds_decimal: entry.ml_odds_decimal || null,
+        is_also_eligible: entry.is_also_eligible || false,
+        scratched: entry.scratched || false,
+        salary: entry.salary || 0,
+        points: resultData?.points || entry.points || 0,
+        place: resultData?.place || entry.place || null,
+        // Parse program_number - handle string, number, or null/undefined
+        program_number: (() => {
+          if (entry.program_number === null || entry.program_number === undefined) return null;
+          const parsed = parseInt(String(entry.program_number), 10);
+          return !isNaN(parsed) && parsed > 0 ? parsed : null;
+        })(),
+        // post_position removed - we only use program_number
+        post_time: entry.post_time || null,
+      };
+    });
+    
+    // Return in the same format as the old JSON files
+    return {
+      track,
+      records,
+      jockeys: [], // We'll calculate these if needed
+      trainers: [],
+      sires: [],
+    };
+  } catch (error) {
+    console.error(`Error loading ${track} data:`, error);
+    throw error;
+  }
 }
 
 export function createConnectionId(name: string, role: ConnectionRole): string {
@@ -48,6 +178,13 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
         }
         
         // Add starter
+        // Parse program_number - handle string, number, or null/undefined
+        let programNumber: number | null = null;
+        if (record.program_number !== null && record.program_number !== undefined) {
+          const parsed = parseInt(String(record.program_number), 10);
+          programNumber = !isNaN(parsed) && parsed > 0 ? parsed : null;
+        }
+        
         const starter: Starter = {
           track: trackData.track,
           race: record.race,
@@ -61,7 +198,10 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           salary: record.salary || 0,
           points: record.points || 0,
           pos: record.place || 0,
-          scratched: false,
+          scratched: record.scratched || false,
+          program_number: programNumber,
+          // post_position removed - we only use program_number
+          postTime: record.post_time || null,
         };
         
         conn.starters.push(starter);
@@ -106,6 +246,13 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           conn.trackSet.push(trackData.track);
         }
         
+        // Parse program_number - handle string, number, or null/undefined
+        let programNumber: number | null = null;
+        if (record.program_number !== null && record.program_number !== undefined) {
+          const parsed = parseInt(String(record.program_number), 10);
+          programNumber = !isNaN(parsed) && parsed > 0 ? parsed : null;
+        }
+        
         const starter: Starter = {
           track: trackData.track,
           race: record.race,
@@ -120,6 +267,7 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           points: record.points || 0,
           pos: record.place || 0,
           scratched: false,
+          program_number: programNumber,
         };
         
         conn.starters.push(starter);
@@ -162,6 +310,13 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           conn.trackSet.push(trackData.track);
         }
         
+        // Parse program_number - handle string, number, or null/undefined
+        let programNumber: number | null = null;
+        if (record.program_number !== null && record.program_number !== undefined) {
+          const parsed = parseInt(String(record.program_number), 10);
+          programNumber = !isNaN(parsed) && parsed > 0 ? parsed : null;
+        }
+        
         const starter: Starter = {
           track: trackData.track,
           race: record.race,
@@ -176,6 +331,7 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           points: record.points || 0,
           pos: record.place || 0,
           scratched: false,
+          program_number: programNumber,
         };
         
         conn.starters.push(starter);
@@ -218,6 +374,13 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           conn.trackSet.push(trackData.track);
         }
         
+        // Parse program_number - handle string, number, or null/undefined
+        let programNumber: number | null = null;
+        if (record.program_number !== null && record.program_number !== undefined) {
+          const parsed = parseInt(String(record.program_number), 10);
+          programNumber = !isNaN(parsed) && parsed > 0 ? parsed : null;
+        }
+        
         const starter: Starter = {
           track: trackData.track,
           race: record.race,
@@ -232,6 +395,7 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
           points: record.points || 0,
           pos: record.place || 0,
           scratched: false,
+          program_number: programNumber,
         };
         
         conn.starters.push(starter);
@@ -264,52 +428,70 @@ export function mergeTrackData(allTracks: TrackData[]): Connection[] {
   }
   
   // Filter out connections with 0 apps (shouldn't happen, but safety check)
-  return connections.filter(c => c.apps > 0);
+  const filtered = connections.filter(c => c.apps > 0);
+  console.log(`🔗 Total connections: ${filtered.length}`);
+  return filtered;
 }
 
 // Enhanced merge that includes avpa30d from aggregated data
-export async function loadAndMergeAllTracks(): Promise<Connection[]> {
-  const tracks = ["BAQ", "GP", "KEE", "SA"];
+export async function loadAndMergeAllTracks(
+  date?: string,
+  selectedTrack?: string | string[] | null
+): Promise<Connection[]> {
+  let trackSpecifier: string | string[] | null | undefined = selectedTrack;
+
+  if (typeof window !== "undefined") {
+    const storedList =
+      window.sessionStorage.getItem("selectedTracks") ||
+      window.sessionStorage.getItem("selectedTrackList");
+
+    if (storedList) {
+      const shouldUseStored =
+        !trackSpecifier ||
+        (typeof trackSpecifier === "string" &&
+          ["ALL", "ALL_TRACKS", "MULTI"].includes(trackSpecifier.toUpperCase()));
+      if (shouldUseStored) {
+        trackSpecifier = storedList;
+      }
+    }
+  }
+
+  const tracks = normalizeTrackSelection(trackSpecifier);
+
+  if (tracks.length === 0) {
+    console.log(
+      "⚠️ No track selection provided. Provide a track or set sessionStorage.selectedTracks to load multiple tracks."
+    );
+    return [];
+  }
+
+  const uniqueTracks = Array.from(new Set(tracks));
   const allTrackData: TrackData[] = [];
-  
-  // Load aggregated data for avpa30d lookup
-  const aggregatedData = new Map<string, { avpa30d: number }>();
-  
-  for (const track of tracks) {
-    try {
-      const data = await loadTrackData(track);
-      allTrackData.push(data);
-      
-      // Extract aggregated connection data for avpa30d
-      const roles = ["jockeys", "trainers", "sires"] as const;
-      for (const role of roles) {
-        if (data[role as keyof typeof data] && Array.isArray(data[role as keyof typeof data])) {
-          const arr = data[role as keyof typeof data] as Array<{ name: string; avpa_30_days?: number }>;
-          for (const item of arr) {
-            const lookupKey = `${item.name.toLowerCase()}-${role.slice(0, -1)}`; // jockeys -> jockey
-            if (item.avpa_30_days !== undefined && item.avpa_30_days !== null) {
-              aggregatedData.set(lookupKey, { avpa30d: item.avpa_30_days });
-            }
-          }
+
+  await Promise.all(
+    uniqueTracks.map(async (track) => {
+      try {
+        console.log(`📊 Loading ${track} data for ${date || "default date"}...`);
+        const data = await loadTrackData(track, date);
+        console.log(`✅ Loaded ${track}: ${data.records.length} records`);
+        allTrackData.push(data);
+      } catch (error) {
+        console.error(`❌ Error loading ${track} data:`, error);
+        if (selectedTrack && !Array.isArray(selectedTrack)) {
+          throw error;
         }
       }
-    } catch (error) {
-      console.error(`Error loading ${track}:`, error);
-    }
+    })
+  );
+
+  if (allTrackData.length === 0) {
+    throw new Error(`No track data loaded. Tried tracks: ${uniqueTracks.join(", ")}`);
   }
-  
-  // Merge all track data
-  let connections = mergeTrackData(allTrackData);
-  
-  // Enhance with avpa30d
-  for (const conn of connections) {
-    const lookupKey = `${conn.name.toLowerCase()}-${conn.role}`;
-    const agg = aggregatedData.get(lookupKey);
-    if (agg) {
-      conn.avpa30d = agg.avpa30d;
-    }
-  }
-  
+
+  console.log(`📈 Total tracks loaded: ${allTrackData.length}/${uniqueTracks.length}`);
+
+  const connections = mergeTrackData(allTrackData);
+
   return connections;
 }
 

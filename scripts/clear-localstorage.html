@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear LocalStorage - Horse Racing App</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #2196f3;
+    }
+    .warning {
+      background: #fff3cd;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #ffc107;
+    }
+    .success {
+      background: #d4edda;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      border-left: 4px solid #28a745;
+    }
+    button {
+      background: #2196f3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #1976d2;
+    }
+    button.danger {
+      background: #f44336;
+    }
+    button.danger:hover {
+      background: #d32f2f;
+    }
+    .stats {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .stats-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .stats-item:last-child {
+      border-bottom: none;
+    }
+    .stats-label {
+      font-weight: 600;
+      color: #495057;
+    }
+    .stats-value {
+      color: #212529;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧹 Clear LocalStorage</h1>
+    
+    <div class="info">
+      <strong>ℹ️ What is this?</strong><br>
+      This tool helps you clear cached data from your browser's localStorage. Use this if you're experiencing issues like "QuotaExceededError" or if you want to free up space.
+    </div>
+    
+    <div id="stats" class="stats">
+      <div class="stats-item">
+        <span class="stats-label">Total Storage Used:</span>
+        <span class="stats-value" id="totalSize">Calculating...</span>
+      </div>
+      <div class="stats-item">
+        <span class="stats-label">Number of Keys:</span>
+        <span class="stats-value" id="keyCount">Calculating...</span>
+      </div>
+      <div class="stats-item">
+        <span class="stats-label">Storage Limit:</span>
+        <span class="stats-value">~5-10 MB (browser dependent)</span>
+      </div>
+    </div>
+    
+    <div class="warning">
+      <strong>⚠️ Warning:</strong><br>
+      Clearing localStorage will remove:
+      <ul>
+        <li>Cached rounds history</li>
+        <li>Cached matchups and connections</li>
+        <li>Cached profile data</li>
+        <li>Session preferences</li>
+      </ul>
+      You will need to reload the page after clearing.
+    </div>
+    
+    <div>
+      <button onclick="clearRoundsHistory()">Clear Rounds History Only</button>
+      <button onclick="clearCache()">Clear Cache Only</button>
+      <button class="danger" onclick="clearAll()">Clear Everything</button>
+      <button onclick="location.reload()">Refresh Page</button>
+    </div>
+    
+    <div id="result" style="margin-top: 20px;"></div>
+  </div>
+  
+  <script>
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    function calculateStorageSize() {
+      let total = 0;
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          total += localStorage[key].length + key.length;
+        }
+      }
+      return total;
+    }
+    
+    function updateStats() {
+      const size = calculateStorageSize();
+      const keyCount = Object.keys(localStorage).length;
+      
+      document.getElementById('totalSize').textContent = formatBytes(size);
+      document.getElementById('keyCount').textContent = keyCount;
+    }
+    
+    function showResult(message, type = 'success') {
+      const resultDiv = document.getElementById('result');
+      resultDiv.className = type;
+      resultDiv.innerHTML = message;
+      updateStats();
+    }
+    
+    function clearRoundsHistory() {
+      try {
+        const keys = ['horse-racing-rounds-history', 'horse-racing-rounds'];
+        keys.forEach(key => {
+          if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+          }
+        });
+        showResult('✅ Rounds history cleared successfully!', 'success');
+      } catch (error) {
+        showResult('❌ Error: ' + error.message, 'warning');
+      }
+    }
+    
+    function clearCache() {
+      try {
+        const cacheKeys = [
+          'horse-racing-cache',
+          'horse-racing-matchups-cache',
+          'horse-racing-connections-cache',
+          'horse-racing-profile-cache',
+          'cached_matchups',
+          'cached_connections',
+          'cached_matchup_pools',
+          'cached_display_counts',
+          'cached_pool_cursor',
+          'cached_available_matchup_types',
+        ];
+        
+        let cleared = 0;
+        cacheKeys.forEach(key => {
+          if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+            cleared++;
+          }
+        });
+        
+        showResult(`✅ Cleared ${cleared} cache entries successfully!`, 'success');
+      } catch (error) {
+        showResult('❌ Error: ' + error.message, 'warning');
+      }
+    }
+    
+    function clearAll() {
+      if (confirm('Are you sure you want to clear ALL localStorage data? This cannot be undone.')) {
+        try {
+          const beforeSize = calculateStorageSize();
+          localStorage.clear();
+          const afterSize = calculateStorageSize();
+          const freedSpace = beforeSize - afterSize;
+          
+          showResult(`✅ All localStorage cleared! Freed ${formatBytes(freedSpace)} of space.`, 'success');
+        } catch (error) {
+          showResult('❌ Error: ' + error.message, 'warning');
+        }
+      }
+    }
+    
+    // Update stats on load
+    updateStats();
+    
+    // Auto-refresh stats every 2 seconds
+    setInterval(updateStats, 2000);
+  </script>
+</body>
+</html>
+

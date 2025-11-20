@@ -18,6 +18,7 @@
 # misc
 .DS_Store
 *.pem
+.cursor/
 
 # debug
 npm-debug.log*
@@ -37,3 +38,18 @@ next-env.d.ts
 
 # other codes folder
 /other codes/
+
+# Archive directories (cleanup)
+/archive/
+/archive/*
+
+# Temporary files
+*.log
+*.tmp
+*.temp
+
+# Development only
+/tests/
+/scripts/test-*.js
+/scripts/debug-*.js
+/frontend-helpers/

@@ -13,6 +13,7 @@ interface SetCardProps {
   readonly showPoints?: boolean;
   readonly showAvpaRace?: boolean;
   readonly highlightedConnectionId?: string;
+  readonly highlightedConnectionIds?: Set<string>;
 }
 
 export function SetCard({
@@ -26,6 +27,7 @@ export function SetCard({
   showPoints = false,
   showAvpaRace = false,
   highlightedConnectionId,
+  highlightedConnectionIds,
 }: SetCardProps) {
   const connectionCount = setSide.connections.length;
   const totalPoints = setSide.connections.reduce((sum, c) => sum + c.pointsSum, 0);
@@ -34,9 +36,16 @@ export function SetCard({
     : 0;
   
   const isSingleConnection = connectionCount === 1;
+  const handleSelect = () => {
+    onSelect();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
   
   return (
     <div
+      data-set-side={label ? `set${label}` : undefined}
       className={`
         rounded-xl border-2 p-4 transition-all
         ${isSelected 
@@ -50,11 +59,11 @@ export function SetCard({
         role="button"
         tabIndex={0}
         className="bg-[var(--blue-50)] rounded-lg p-3 mb-4 flex items-center justify-between border border-[var(--content-16)] cursor-pointer hover:bg-[var(--blue-50)]/80 transition-colors"
-        onClick={onSelect}
+        onClick={handleSelect}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onSelect();
+            handleSelect();
           }
         }}
       >
@@ -70,7 +79,7 @@ export function SetCard({
           className={`px-3 py-1 rounded-full text-sm font-semibold ${isSelected ? "bg-[var(--btn-default)] text-white" : "bg-[var(--blue-50)] text-[var(--brand)]"}`}
           onClick={(e) => {
             e.stopPropagation();
-            onSelect();
+            handleSelect();
           }}
         >
           {isSelected ? "Selected" : "Select"}
@@ -85,7 +94,10 @@ export function SetCard({
             connection={conn}
             onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
             onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
-            isHighlighted={conn.id === highlightedConnectionId}
+            isHighlighted={
+              (highlightedConnectionId ? conn.id === highlightedConnectionId : false) ||
+              (highlightedConnectionIds ? highlightedConnectionIds.has(conn.id) : false)
+            }
             showSalary={!isSingleConnection}
             compact={false}
           />

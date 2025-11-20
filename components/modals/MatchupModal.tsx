@@ -40,62 +40,42 @@ export function MatchupModal({
     return "bg-gray-100 text-gray-800";
   };
   
-  // Calculate post positions for ALL starters (EXACT same logic as StartersWindow)
-  // We need ALL starters from ALL connections in the app to get the correct post positions (matching starters panel)
-  const calculatePostPositions = () => {
-    const postPositionsMap = new Map<string, Map<string, number>>();
-    
-    // Build all starters array from ALL connections (preserving order) - EXACT same as StartersWindow
-    const allStartersList: Starter[] = [];
-    for (const conn of connections) {
-      for (const starter of conn.starters) {
-        if (starter.scratched) continue;
-        allStartersList.push(starter);
-      }
+  // Use program_number (saddlecloth number) directly from backend data
+  const getProgramNumberBadge = (programNumber?: number | null) => {
+    if (!programNumber || programNumber < 1) {
+      return { bg: "bg-gray-300", text: "text-gray-700", number: null };
     }
     
-    // Group by race (preserving order from allStartersList)
-    const allRacesMap = new Map<string, Starter[]>();
-    for (const starter of allStartersList) {
-      const raceKey = `${starter.track}-${starter.race}`;
-      if (!allRacesMap.has(raceKey)) {
-        allRacesMap.set(raceKey, []);
-      }
-      allRacesMap.get(raceKey)!.push(starter);
+    // Standard saddlecloth colors (exact hex values from racing app)
+    const colors: Record<number, { bg: string; text: string }> = {
+      1: { bg: "bg-[#DC2626]", text: "text-white" },
+      2: { bg: "bg-[#F0FFFF]", text: "text-black" },
+      3: { bg: "bg-[#005CE8]", text: "text-white" },
+      4: { bg: "bg-[#ECC94B]", text: "text-black" },
+      5: { bg: "bg-[#16A34A]", text: "text-white" },
+      6: { bg: "bg-[#800080]", text: "text-white" },
+      7: { bg: "bg-[#F97316]", text: "text-black" },
+      8: { bg: "bg-[#F9A8D4]", text: "text-black" },
+      9: { bg: "bg-[#99F6E4]", text: "text-black" },
+      10: { bg: "bg-[#800080]", text: "text-white" },
+      11: { bg: "bg-[#000080]", text: "text-white" },
+      12: { bg: "bg-[#36CD30]", text: "text-black" },
+      13: { bg: "bg-[#8A2CE6]", text: "text-white" },
+      14: { bg: "bg-[#817E01]", text: "text-white" },
+      15: { bg: "bg-[#ABA96F]", text: "text-black" },
+      16: { bg: "bg-[#2A557B]", text: "text-white" },
+    };
+    
+    if (programNumber <= 16 && colors[programNumber]) {
+      return { ...colors[programNumber], number: programNumber };
     }
     
-    // Assign post positions within each race (EXACT same logic as StartersWindow)
-    for (const [raceKey, raceStarters] of Array.from(allRacesMap.entries())) {
-      // Keep first-seen order within the race and assign posts sequentially 1..N
-      const seen = new Set<string>();
-      const ordered: Starter[] = [];
-      for (const s of raceStarters) {
-        if (seen.has(s.horseName)) continue;
-        seen.add(s.horseName);
-        ordered.push(s);
-      }
-      
-      const racePostMap = new Map<string, number>();
-      let post = 1;
-      for (const s of ordered) {
-        const horseKey = `${s.track}-${s.race}-${s.horseName}`;
-        racePostMap.set(horseKey, post++);
-      }
-      postPositionsMap.set(raceKey, racePostMap);
-    }
-    
-    return postPositionsMap;
+    // For numbers > 16, cycle through colors
+    const colorArray = Object.values(colors);
+    const index = (programNumber - 1) % colorArray.length;
+    return { ...colorArray[index], number: programNumber };
   };
   
-  // Calculate post positions once using ALL connections (matching starters panel)
-  const postPositionsMap = calculatePostPositions();
-  
-  const getPostBadge = (post?: number) => {
-    if (!post) return "bg-gray-300 text-gray-700";
-    const palette = ["bg-green-500", "bg-blue-500", "bg-red-500", "bg-amber-500", "bg-purple-500", "bg-teal-500"];
-    const color = palette[(post - 1) % palette.length];
-    return `${color} text-white`;
-  };
   
   // Get unique tracks for a connection
   const getConnectionTracks = (conn: Connection): string[] => {
@@ -186,10 +166,10 @@ export function MatchupModal({
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold">Set A</h3>
               {selectedSet === "A" && (
-                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  Selected
-                </span>
-              )}
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                Selected
+              </span>
+            )}
             </div>
             
             {/* Summary Box - Points more prominent */}
@@ -207,7 +187,7 @@ export function MatchupModal({
                   <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
                   <span className="text-gray-600">:</span>
                   <span className="font-semibold text-gray-900 ml-1">{setAPointsPer1K.toFixed(2)}</span>
-                </div>
+              </div>
               </div>
             </div>
             
@@ -218,7 +198,7 @@ export function MatchupModal({
               const filteredStats = getFilteredStats(conn, selectedTrack);
               
               return (
-                <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+              <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
                   {/* Connection Name and Role */}
                   <div className="mb-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -252,20 +232,20 @@ export function MatchupModal({
                           <div className="text-xs text-gray-500 mb-1">Apps</div>
                           <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
                         </div>
-                        <div>
+                  <div>
                           <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
                           <div className="font-bold text-sm text-gray-900">
                             {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
                           </div>
-                        </div>
-                        <div>
+                  </div>
+                  <div>
                           <div className="text-xs text-gray-500 mb-1">AVPA (30D)</div>
                           <div className="font-bold text-sm text-gray-900">
                             {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
                           </div>
-                        </div>
-                      </div>
-                      
+                  </div>
+                </div>
+                
                       <div className="border-t border-gray-200 pt-3">
                         <div className="grid grid-cols-3 gap-3">
                           <div>
@@ -315,9 +295,9 @@ export function MatchupModal({
                               {track}
                             </button>
                           ))}
-                        </div>
-                      )}
-                    </div>
+                  </div>
+                )}
+              </div>
                     
                     <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
                       <table className="w-full text-sm">
@@ -368,19 +348,16 @@ export function MatchupModal({
                               
                               // Add starters for this track
                               starters.forEach((starter, idx) => {
-                                const raceKey = `${starter.track}-${starter.race}`;
-                                const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                                const racePostMap = postPositionsMap.get(raceKey);
-                                const post = racePostMap?.get(horseKey);
+                                // Use program_number (saddlecloth number) directly from backend
+                                const programNumber = starter.program_number;
+                                const badgeStyle = getProgramNumberBadge(programNumber);
                                 
                                 result.push(
                                   <tr key={`${track}-${idx}`} className={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                     <td className="py-2.5 px-3">
                                       <div className="flex items-center gap-2">
-                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${
-                                          post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                        }`}>
-                                          {post || "—"}
+                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${badgeStyle.bg} ${badgeStyle.text}`}>
+                                          {programNumber ?? "—"}
                                         </span>
                                         <span className="text-[12px] leading-[18px] text-gray-600 font-medium">{starter.mlOddsFrac || "—"}</span>
                                         <span className="text-[12px] leading-[18px] font-semibold text-gray-900">{starter.horseName}</span>
@@ -418,10 +395,10 @@ export function MatchupModal({
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold">Set B</h3>
               {selectedSet === "B" && (
-                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  Selected
-                </span>
-              )}
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                Selected
+              </span>
+            )}
             </div>
             
             {/* Summary Box - Points more prominent */}
@@ -439,7 +416,7 @@ export function MatchupModal({
                   <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
                   <span className="text-gray-600">:</span>
                   <span className="font-semibold text-gray-900 ml-1">{setBPointsPer1K.toFixed(2)}</span>
-                </div>
+              </div>
               </div>
             </div>
             
@@ -450,7 +427,7 @@ export function MatchupModal({
               const filteredStats = getFilteredStats(conn, selectedTrack);
               
               return (
-                <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+              <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
                   {/* Connection Name and Role */}
                   <div className="mb-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -484,20 +461,20 @@ export function MatchupModal({
                           <div className="text-xs text-gray-500 mb-1">Apps</div>
                           <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
                         </div>
-                        <div>
+                  <div>
                           <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
                           <div className="font-bold text-sm text-gray-900">
                             {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
                           </div>
-                        </div>
-                        <div>
+                  </div>
+                  <div>
                           <div className="text-xs text-gray-500 mb-1">AVPA (30D)</div>
                           <div className="font-bold text-sm text-gray-900">
                             {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
                           </div>
-                        </div>
-                      </div>
-                      
+                  </div>
+                </div>
+                
                       <div className="border-t border-gray-200 pt-3">
                         <div className="grid grid-cols-3 gap-3">
                           <div>
@@ -547,9 +524,9 @@ export function MatchupModal({
                               {track}
                             </button>
                           ))}
-                        </div>
-                      )}
-                    </div>
+                  </div>
+                )}
+              </div>
                     
                     <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
                       <table className="w-full text-sm">
@@ -600,19 +577,16 @@ export function MatchupModal({
                               
                               // Add starters for this track
                               starters.forEach((starter, idx) => {
-                                const raceKey = `${starter.track}-${starter.race}`;
-                                const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                                const racePostMap = postPositionsMap.get(raceKey);
-                                const post = racePostMap?.get(horseKey);
+                                // Use program_number (saddlecloth number) directly from backend
+                                const programNumber = starter.program_number;
+                                const badgeStyle = getProgramNumberBadge(programNumber);
                                 
                                 result.push(
                                   <tr key={`${track}-${idx}`} className={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                     <td className="py-2.5 px-3">
                                       <div className="flex items-center gap-2">
-                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${
-                                          post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                        }`}>
-                                          {post || "—"}
+                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${badgeStyle.bg} ${badgeStyle.text}`}>
+                                          {programNumber ?? "—"}
                                         </span>
                                         <span className="text-[12px] leading-[18px] text-gray-600 font-medium">{starter.mlOddsFrac || "—"}</span>
                                         <span className="text-[12px] leading-[18px] font-semibold text-gray-900">{starter.horseName}</span>

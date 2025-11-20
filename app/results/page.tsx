@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserData } from "@/hooks/useUserData";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Round, Matchup, Connection } from "@/types";
 import { matchupWinner } from "@/lib/scoring";
@@ -14,11 +15,91 @@ import { CompareModal } from "@/components/modals/CompareModal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronRight, ChevronDown } from "lucide-react";
+import { UserRoundsHistory } from "@/components/UserRoundsHistory";
+// DEPRECATED: import { loadHistoryRounds } from "@/lib/store";
 
 export default function ResultsPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { rounds, bankroll, connections, regenerateMatchups, tolerance } = useApp();
+  
+  // OLD SYSTEM (keeping for compatibility)
+  const { rounds: contextRounds, bankroll: oldBankroll, connections, regenerateMatchups, tolerance } = useApp();
+  
+  // NEW SYSTEM (relational database)
+  const userData = useUserData();
+  
+  const [backendRounds, setBackendRounds] = useState<Round[]>([]);
+  const [historyRounds, setHistoryRounds] = useState<Round[]>([]);
+
+  // Use relational data if authenticated, fallback to old system
+  const rounds = userData.profile?.id ? userData.rounds : contextRounds;
+  const bankroll = userData.profile?.id ? userData.bankroll : oldBankroll;
+  
+  // Load rounds - use relational system if authenticated
+  useEffect(() => {
+    if (userData.profile?.id) {
+      // NEW: Rounds automatically loaded via userData hook
+      setHistoryRounds(userData.rounds);
+    } else if (user?.id) {
+      // FALLBACK: Load from new relational API endpoint
+      const fetchRounds = async () => {
+        try {
+          const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+          const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/rounds?limit=100`, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const roundsData = data.rounds || [];
+            
+            // Convert relational rounds to frontend format
+            const rounds = roundsData.map((round: any) => ({
+              id: round.id,
+              createdAt: round.created_at || round.createdAt,
+              picks: round.user_entry?.picks || [],
+              entryAmount: round.entry_amount || round.user_entry?.entry_amount || 0,
+              multiplier: round.multiplier || 1,
+              winnings: round.actual_payout || 0,
+              matchups: [], // Will be populated if needed
+            }));
+            setHistoryRounds(rounds);
+          } else {
+            console.error('Failed to fetch rounds from backend');
+          }
+        } catch (error) {
+          console.error('Error fetching rounds from backend:', error);
+        }
+      };
+      
+      fetchRounds();
+    }
+  }, [user?.id, userData.profile?.id, userData.rounds]);
+  
+  // Load history rounds - REPLACED with relational data above
+  // This is now handled in the earlier useEffect with relational data
+  
+  // Combine context rounds and history rounds, removing duplicates
+  const allRounds = useMemo(() => {
+    const combined = [...contextRounds];
+    const roundIds = new Set(combined.map(r => r.id));
+    
+    // Add history rounds that aren't already in current rounds
+    historyRounds.forEach(round => {
+      if (!roundIds.has(round.id)) {
+        combined.push(round);
+        roundIds.add(round.id);
+      }
+    });
+    
+    // Sort by creation date (newest first)
+    return combined.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [contextRounds, historyRounds]);
+  
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
   const [selectedPick, setSelectedPick] = useState<{
     matchup: Matchup;
@@ -165,7 +246,7 @@ export default function ResultsPage() {
         </div>
         </div>
 
-        {rounds.length === 0 ? (
+        {allRounds.length === 0 ? (
             <Card className="p-12 text-center bg-white">
               <div className="text-gray-500 mb-4">No rounds submitted yet</div>
               <Button
@@ -177,7 +258,7 @@ export default function ResultsPage() {
             </Card>
           ) : (
           <div className="space-y-2">
-            {rounds.map((round) => {
+            {allRounds.map((round) => {
               const results = getRoundResults(round);
               const netColor = results.netResult >= 0 ? "text-green-600" : "text-red-600";
               const isExpanded = expandedRounds.has(round.id);

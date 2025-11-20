@@ -29,6 +29,7 @@ export function Navigation() {
   // Show all navigation items for authenticated users
   const navItems = [
     { href: "/", label: "Home", icon: Home },
+    { href: "/matchups", label: "Matchups", icon: Trophy },
     { href: "/live", label: "Live", icon: Radio },
     { href: "/results", label: "Results", icon: BarChart3 },
   ];
@@ -57,7 +58,7 @@ export function Navigation() {
       <div className="px-5">
         <div className="flex items-center justify-between h-[72px]">
           {/* Title */}
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/matchups" className="flex items-center gap-3">
             <span className="text-[16px] leading-6 font-semibold tracking-[-0.2px] text-white">Matchups</span>
           </Link>
           

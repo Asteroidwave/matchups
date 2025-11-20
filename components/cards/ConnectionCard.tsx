@@ -10,9 +10,13 @@ interface ConnectionCardProps {
 }
 
 const trackColors: Record<string, { bg: string; text: string }> = {
-  BAQ: { bg: "bg-blue-500", text: "text-blue-500" },
+  AQU: { bg: "bg-blue-500", text: "text-blue-500" },
+  BAQ: { bg: "bg-cyan-500", text: "text-cyan-500" },
+  BEL: { bg: "bg-indigo-500", text: "text-indigo-500" },
+  CD: { bg: "bg-amber-500", text: "text-amber-500" },
   GP: { bg: "bg-green-500", text: "text-green-500" },
   KEE: { bg: "bg-purple-500", text: "text-purple-500" },
+  LRL: { bg: "bg-pink-500", text: "text-pink-500" },
   SA: { bg: "bg-red-500", text: "text-red-500" },
 };
 
@@ -29,9 +33,13 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
   
   return (
     <div 
+      data-connection-card
+      data-connection-id={connection.id}
+      data-connection-name={connection.name}
+      data-connection-role={connection.role}
       className={`w-full text-left rounded-lg border-2 p-4 ${
         isHighlighted
-          ? "bg-[var(--blue-50)] border-[var(--brand)] shadow-md"
+          ? "bg-[var(--blue-50)] border-[var(--brand)] shadow-[0_0_0_2px_rgba(59,130,246,0.25)]"
           : "bg-[var(--surface-1)] border-[var(--content-15)] hover:border-[var(--content-9)]"
       } ${onClick ? "cursor-pointer transition-all" : ""}`}
       onClick={onClick}
@@ -41,6 +49,7 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <div 
+              data-connection-name
               className={`font-bold ${compact ? "text-base" : "text-lg"} text-[var(--text-primary)] truncate ${
                 onNameClick ? "hover:text-[var(--btn-link)] cursor-pointer" : ""
               }`}

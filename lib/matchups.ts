@@ -4,6 +4,108 @@ export interface MatchupGenerationOptions {
   count?: number;
   tolerance?: number;
   sizes?: number[];
+  isMixed?: boolean;
+}
+
+/**
+ * Check if connections are from different tracks
+ */
+function areFromDifferentTracks(connsA: Connection[], connsB: Connection[]): boolean {
+  const tracksA = new Set<string>();
+  const tracksB = new Set<string>();
+  
+  for (const conn of connsA) {
+    conn.trackSet.forEach(track => tracksA.add(track));
+  }
+  
+  for (const conn of connsB) {
+    conn.trackSet.forEach(track => tracksB.add(track));
+  }
+  
+  // Check if there's any overlap in tracks
+  for (const track of tracksA) {
+    if (tracksB.has(track)) {
+      return false; // Same track found
+    }
+  }
+  
+  return tracksA.size > 0 && tracksB.size > 0; // Different tracks
+}
+
+/**
+ * Check if sets have different roles (for same-track mixed matchups)
+ */
+function haveDifferentRoles(connsA: Connection[], connsB: Connection[]): boolean {
+  const rolesA = new Set<string>();
+  const rolesB = new Set<string>();
+  
+  for (const conn of connsA) {
+    rolesA.add(conn.role);
+  }
+  
+  for (const conn of connsB) {
+    rolesB.add(conn.role);
+  }
+  
+  // Check if there's any overlap in roles
+  for (const role of rolesA) {
+    if (rolesB.has(role)) {
+      return false; // Same role found
+    }
+  }
+  
+  return true; // All different roles
+}
+
+/**
+ * Check if two connection sets share any horses
+ */
+function checkHorseOverlap(connsA: Connection[], connsB: Connection[]): boolean {
+  const horsesA = new Set<string>();
+  const horsesB = new Set<string>();
+  
+  for (const conn of connsA) {
+    for (const starter of conn.starters) {
+      horsesA.add(starter.horseName);
+    }
+  }
+  
+  for (const conn of connsB) {
+    for (const starter of conn.starters) {
+      horsesB.add(starter.horseName);
+    }
+  }
+  
+  // Check for intersection
+  for (const horse of horsesA) {
+    if (horsesB.has(horse)) {
+      return true; // Overlap found
+    }
+  }
+  
+  return false; // No overlap
+}
+
+/**
+ * Validate mixed matchup rules:
+ * - If from different tracks: roles can be the same
+ * - If from same track: must have different roles
+ */
+function isValidMixedMatchup(connsA: Connection[], connsB: Connection[]): boolean {
+  // First check horse overlap (always required)
+  if (checkHorseOverlap(connsA, connsB)) {
+    return false;
+  }
+  
+  const fromDifferentTracks = areFromDifferentTracks(connsA, connsB);
+  
+  if (fromDifferentTracks) {
+    // Different tracks: roles can be the same, already valid
+    return true;
+  } else {
+    // Same track: must have different roles
+    return haveDifferentRoles(connsA, connsB);
+  }
 }
 
 // Here are some changes
@@ -15,6 +117,7 @@ export function generateMatchups(
     count = 10,
     tolerance = 500,
     sizes = [1, 2], // Only 1v1, 2v1, 1v2 (max 2 connections per side)
+    isMixed = false,
   } = options;
   
   const matchups: Matchup[] = [];
@@ -108,6 +211,12 @@ export function generateMatchups(
           .sort((a, b) => a.diff - b.diff)[0];
         
         if (bestMatch && bestMatch.diff <= tolerance) {
+          // Validate based on matchup type
+          const isValid = isMixed 
+            ? isValidMixedMatchup(setA, [bestMatch.conn])
+            : !checkHorseOverlap(setA, [bestMatch.conn]);
+          
+          if (isValid) {
           const frozenSetA = setA.map(c => ({ ...c, starters: [...c.starters] }));
           const frozenSetB = [{ ...bestMatch.conn, starters: [...bestMatch.conn.starters] }];
           
@@ -117,6 +226,7 @@ export function generateMatchups(
               if (i < 5) usedConnections.add(c.id);
             });
             matchups.push(matchup);
+            }
           }
         }
       } else {
@@ -139,6 +249,12 @@ export function generateMatchups(
         }
         
         if (setB.length === sizeB && Math.abs(salaryA - currentSalary) <= tolerance) {
+          // Validate based on matchup type
+          const isValid = isMixed 
+            ? isValidMixedMatchup(setA, setB)
+            : !checkHorseOverlap(setA, setB);
+          
+          if (isValid) {
           const frozenSetA = setA.map(c => ({ ...c, starters: [...c.starters] }));
           const frozenSetB = setB.map(c => ({ ...c, starters: [...c.starters] }));
           
@@ -148,6 +264,7 @@ export function generateMatchups(
               if (i < 5) usedConnections.add(c.id);
             });
             matchups.push(matchup);
+            }
           }
         }
       }

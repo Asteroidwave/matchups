@@ -9,11 +9,16 @@ export interface Starter {
   sire1?: string;
   sire2?: string;
   mlOddsFrac?: string;
+  mlOdds?: number;
   decimalOdds?: number;
   salary?: number;
   points?: number;
   pos?: number;
   scratched?: boolean;
+  program_number?: number; // Saddlecloth number (doesn't change if horses scratch)
+  post_position?: number; // Gate position (may change if horses scratch)
+  postTime?: string | null;
+  isAE?: boolean; // Also Eligible
 }
 
 export interface Connection {
@@ -39,6 +44,7 @@ export interface Matchup {
   id: string;
   setA: SetSide;
   setB: SetSide;
+  matchupType?: string; // 'jockey_vs_jockey' | 'trainer_vs_trainer' | 'sire_vs_sire' | 'mixed'
 }
 
 export interface RoundPick {
@@ -73,6 +79,9 @@ export interface TrackData {
     salary?: number;
     points?: number;
     place?: number;
+    program_number?: number; // Saddlecloth number (doesn't change if horses scratch)
+    post_position?: number; // Gate position (may change if horses scratch)
+    post_time?: string | null; // Post time for the race (ISO string)
   }>;
   jockeys?: Array<{ name: string; avpa_30_days?: number }>;
   trainers?: Array<{ name: string; avpa_30_days?: number }>;

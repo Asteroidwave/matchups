@@ -11,6 +11,7 @@ interface MatchupCardProps {
   readonly showPoints?: boolean;
   readonly showAvpaRace?: boolean;
   readonly highlightedConnectionId?: string;
+  readonly highlightedConnectionIds?: Set<string>;
   readonly matchupNumber?: number;
   readonly onCompareClick?: () => void;
 }
@@ -24,6 +25,7 @@ export function MatchupCard({
   showPoints = false,
   showAvpaRace = false,
   highlightedConnectionId,
+  highlightedConnectionIds,
   matchupNumber,
   onCompareClick,
 }: MatchupCardProps) {
@@ -47,7 +49,7 @@ export function MatchupCard({
         <div className="grid grid-cols-2 gap-4 p-4">
           <SetCard
             setSide={matchup.setA}
-            label={undefined}
+            label="A"
             isSelected={selected === "A"}
             onSelect={() => onSelect("A")}
             onConnectionClick={onConnectionClick}
@@ -56,10 +58,11 @@ export function MatchupCard({
             showPoints={showPoints}
             showAvpaRace={showAvpaRace}
             highlightedConnectionId={highlightedConnectionId}
+            highlightedConnectionIds={highlightedConnectionIds}
           />
           <SetCard
             setSide={matchup.setB}
-            label={undefined}
+            label="B"
             isSelected={selected === "B"}
             onSelect={() => onSelect("B")}
             onConnectionClick={onConnectionClick}
@@ -68,6 +71,7 @@ export function MatchupCard({
             showPoints={showPoints}
             showAvpaRace={showAvpaRace}
             highlightedConnectionId={highlightedConnectionId}
+            highlightedConnectionIds={highlightedConnectionIds}
           />
         </div>
       </div>

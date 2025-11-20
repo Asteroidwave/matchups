@@ -19,10 +19,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redirect to lobby if already logged in
+  // Redirect to matchups if already logged in
   useEffect(() => {
     if (user && !isLoading) {
-      router.push('/lobby');
+      router.push('/matchups');
     }
   }, [user, isLoading, router]);
 

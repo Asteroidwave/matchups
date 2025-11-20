@@ -3,7 +3,10 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AppProvider } from '@/contexts/AppContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { RelationalAppProvider } from '@/contexts/RelationalAppContext';
 import { Navigation } from '@/components/layout/Navigation';
+import { RelationalNavigation } from '@/components/layout/RelationalNavigation';
+import { MigrationPrompt } from '@/components/migration/MigrationPrompt';
 import { Analytics } from "@vercel/analytics/react";
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -25,9 +28,15 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <AppProvider>
-              <Navigation />
-              {children}
-              <Analytics />
+              <RelationalAppProvider>
+                {/* Migration prompt shows if localStorage data exists */}
+                <MigrationPrompt />
+                
+                {/* Use enhanced navigation with user account features */}
+                <RelationalNavigation />
+                {children}
+                <Analytics />
+              </RelationalAppProvider>
             </AppProvider>
           </AuthProvider>
         </ErrorBoundary>

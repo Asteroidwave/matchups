@@ -68,57 +68,44 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
       return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
     });
 
-    // Calculate post positions for starters (EXACT same logic as StartersWindow)
-    const postPositionsMap = new Map<string, Map<string, number>>();
-    
-    // Build all starters array in the EXACT same way as StartersWindow (preserving order)
-    const allStartersList: Starter[] = [];
-    for (const conn of allConnections) {
-      for (const starter of conn.starters) {
-        if (starter.scratched) continue;
-        allStartersList.push(starter);
-      }
-    }
-    
-    // Group by race (preserving order from allStartersList)
-    const allRacesMap = new Map<string, Starter[]>();
-    for (const starter of allStartersList) {
-      const raceKey = `${starter.track}-${starter.race}`;
-      if (!allRacesMap.has(raceKey)) {
-        allRacesMap.set(raceKey, []);
-      }
-      allRacesMap.get(raceKey)!.push(starter);
-    }
-    
-    // Assign post positions within each race (EXACT same logic as StartersWindow)
-    for (const [raceKey, raceStarters] of Array.from(allRacesMap.entries())) {
-      // Keep first-seen order within the race and assign posts sequentially 1..N
-      const seen = new Set<string>();
-      const ordered: Starter[] = [];
-      for (const s of raceStarters) {
-        if (seen.has(s.horseName)) continue;
-        seen.add(s.horseName);
-        ordered.push(s);
+    // Use program_number (saddlecloth number) directly from backend data
+    const getProgramNumberBadge = (programNumber?: number | null) => {
+      if (!programNumber || programNumber < 1) {
+        return { bg: "bg-gray-300", text: "text-gray-700", number: null };
       }
       
-      const racePostMap = new Map<string, number>();
-      let post = 1;
-      for (const s of ordered) {
-        const horseKey = `${s.track}-${s.race}-${s.horseName}`;
-        racePostMap.set(horseKey, post++);
+      // Standard saddlecloth colors (exact hex values from racing app)
+      const colors: Record<number, { bg: string; text: string }> = {
+        1: { bg: "bg-[#DC2626]", text: "text-white" },
+        2: { bg: "bg-[#F0FFFF]", text: "text-black" },
+        3: { bg: "bg-[#005CE8]", text: "text-white" },
+        4: { bg: "bg-[#ECC94B]", text: "text-black" },
+        5: { bg: "bg-[#16A34A]", text: "text-white" },
+        6: { bg: "bg-[#800080]", text: "text-white" },
+        7: { bg: "bg-[#F97316]", text: "text-black" },
+        8: { bg: "bg-[#F9A8D4]", text: "text-black" },
+        9: { bg: "bg-[#99F6E4]", text: "text-black" },
+        10: { bg: "bg-[#800080]", text: "text-white" },
+        11: { bg: "bg-[#000080]", text: "text-white" },
+        12: { bg: "bg-[#36CD30]", text: "text-black" },
+        13: { bg: "bg-[#8A2CE6]", text: "text-white" },
+        14: { bg: "bg-[#817E01]", text: "text-white" },
+        15: { bg: "bg-[#ABA96F]", text: "text-black" },
+        16: { bg: "bg-[#2A557B]", text: "text-white" },
+      };
+      
+      if (programNumber <= 16 && colors[programNumber]) {
+        return { ...colors[programNumber], number: programNumber };
       }
-      postPositionsMap.set(raceKey, racePostMap);
-    }
-    
-    const getPostBadge = (post?: number) => {
-      if (!post) return "bg-gray-300 text-gray-700";
-      const palette = ["bg-green-500", "bg-blue-500", "bg-red-500", "bg-amber-500", "bg-purple-500", "bg-teal-500"];
-      const color = palette[(post - 1) % palette.length];
-      return `${color} text-white`;
+      
+      // For numbers > 16, cycle through colors
+      const colorArray = Object.values(colors);
+      const index = (programNumber - 1) % colorArray.length;
+      return { ...colorArray[index], number: programNumber };
     };
 
     return (
-      <div className="w-[616px] p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0" style={{ maxHeight: '63vh', height: '63vh', pointerEvents: 'auto' }}>
+      <div className="w-[616px] p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0" style={{ maxHeight: '63vh', height: '63vh' }}>
         {/* Header - Single color design with overlapping circle */}
         <div className={`relative h-[162px] ${headerBg} text-white flex-shrink-0`}>
           <button
@@ -203,17 +190,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
             position: 'relative',
-            touchAction: 'pan-y',
-            pointerEvents: 'auto',
-            isolation: 'isolate'
-          }}
-          onWheel={(e) => {
-            if (scrollRef.current) {
-              e.stopPropagation();
-              const delta = e.deltaY;
-              scrollRef.current.scrollTop += delta;
-              e.preventDefault();
-            }
+            touchAction: 'pan-y'
           }}
         >
           {activeTab === "connected" && (
@@ -244,37 +221,38 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                         {/* Div.rack.track.group.component - Race Header (gray band) */}
                         <tr className="bg-[var(--content-15)]">
                           <td colSpan={2} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                            October 3, 2025, {trackName}, Race {raceNum}
+                            {sessionStorage.getItem('selectedDateFromLobby') || 'Today'}, {trackName}, Race {raceNum}
                           </td>
                         </tr>
                         
                         {/* Horse rows for this race - table-header style */}
                         {starters.map((starter, idx) => {
-                          // Get post position for this starter
-                          const raceKey = `${starter.track}-${starter.race}`;
-                          const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                          const racePostMap = postPositionsMap.get(raceKey);
-                          const post = racePostMap?.get(horseKey);
+                          // Use program_number (saddlecloth number) directly from backend
+                          const programNumber = starter.program_number;
+                          const badgeStyle = getProgramNumberBadge(programNumber);
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
                               {/* Horse Column - div.top style (140px width matching Figma) */}
                               <td className="w-[140px] py-3 pl-5 pr-0 align-top">
                                 <div className="flex flex-col gap-1.5">
-                                  {/* PP and Odds in a row */}
+                                  {/* Program Number and Odds in a row */}
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] flex-shrink-0 ${
-                                      post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                    }`}>
-                                      {post || "—"}
+                                    <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] flex-shrink-0 ${badgeStyle.bg} ${badgeStyle.text}`}>
+                                      {programNumber ?? "—"}
                                     </span>
                                     <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
                                       {starter.mlOddsFrac || "—"}
                                     </span>
                                   </div>
                                   {/* Horse Name */}
-                                  <div className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                    {starter.horseName}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                      {starter.horseName}
+                                    </span>
+                                    {starter.isAE && (
+                                      <span className="text-[10px] leading-[14px] font-semibold bg-yellow-100 text-yellow-800 px-1 rounded">AE</span>
+                                    )}
                                   </div>
                                 </div>
                               </td>
@@ -329,6 +307,18 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           )}
           
           {activeTab === "past" && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center p-8">
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                  Past Performance Coming Soon
+                </h3>
+                <p className="text-sm text-[var(--text-tertiary)]">
+                  Historical race data and performance metrics will be available in a future update.
+                </p>
+              </div>
+            </div>
+          )}
+          {activeTab === "past" && false && ( // Hidden old implementation
             <div style={{ width: '100%' }}>
               <table className="w-full">
                 <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
@@ -353,7 +343,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                       <React.Fragment key={key}>
                         <tr className="bg-[var(--content-15)]">
                           <td colSpan={3} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                            October 3, 2025, {trackName}, Race {raceNum}
+                            {sessionStorage.getItem('selectedDateFromLobby') || 'Today'}, {trackName}, Race {raceNum}
                           </td>
                         </tr>
                         {starters.map((starter, idx) => (
@@ -383,15 +373,22 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <DialogPrimitive.Portal>
         {/* Backdrop */}
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 pointer-events-auto" onClick={onClose} />
+        <DialogPrimitive.Overlay 
+          className="fixed inset-0 z-[100] bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          onClick={onClose}
+        />
         
         {/* Modal Container - Side by side with gap */}
-        <div className="relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8">
+        <DialogPrimitive.Content 
+          className="fixed left-[50%] top-[50%] z-[101] flex items-start justify-center gap-3 pt-8 pb-8 translate-x-[-50%] translate-y-[-50%] pointer-events-none w-full max-w-[1400px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={onClose}
+        >
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
               {renderConnectionModal(
                 matchup.setA.connections[0],
                 activeTabSetA,
@@ -403,7 +400,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
           {/* Set B Modal */}
           {matchup?.setB?.connections?.length > 0 ? (
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
               {renderConnectionModal(
                 matchup.setB.connections[0],
                 activeTabSetB,
@@ -412,8 +409,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
               )}
             </div>
           ) : null}
-        </div>
-      </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
     </Dialog>
   );
 }
