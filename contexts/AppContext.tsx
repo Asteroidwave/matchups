@@ -6,6 +6,12 @@ import { loadAndMergeAllTracks } from "@/lib/ingest";
 import { generateMatchups, MatchupGenerationOptions } from "@/lib/matchups";
 import { saveRound, loadRounds } from "@/lib/store";
 import { matchupWinner } from "@/lib/scoring";
+import { 
+  getAvailableTracks, 
+  getDataForDate, 
+  findMultiTrackDates,
+  AVAILABLE_TRACKS 
+} from "@/lib/parseExcel";
 
 interface AppContextType {
   connections: Connection[];
@@ -16,11 +22,20 @@ interface AppContextType {
   error: string | null;
   bankroll: number;
   
+  // Track and date selection
+  availableTracks: { code: string; name: string; dates: string[] }[];
+  selectedTracks: string[];
+  selectedDate: string;
+  useExcelData: boolean;
+  
   loadData: () => Promise<void>;
   regenerateMatchups: (options?: MatchupGenerationOptions) => void;
   setTolerance: (tolerance: number) => void;
   submitRound: (picks: RoundPick[], entryAmount: number, multiplier: number) => void;
   updateBankroll: (amount: number) => void;
+  setSelectedTracks: (tracks: string[]) => void;
+  setSelectedDate: (date: string) => void;
+  setUseExcelData: (useExcel: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -32,22 +47,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [tolerance, setTolerance] = useState(500);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bankroll, setBankroll] = useState(1000); // Start with $1000
+  const [bankroll, setBankroll] = useState(217417.23); // Start with balance shown in UI
+  
+  // Track and date selection
+  const [availableTracks, setAvailableTracks] = useState<{ code: string; name: string; dates: string[] }[]>([]);
+  const [selectedTracks, setSelectedTracksState] = useState<string[]>(['AQU']);
+  const [selectedDate, setSelectedDateState] = useState<string>('2025-01-01');
+  const [useExcelData, setUseExcelDataState] = useState<boolean>(true);
+  
+  // Load available tracks on mount
+  useEffect(() => {
+    const loadTracks = async () => {
+      try {
+        const tracks = await getAvailableTracks();
+        setAvailableTracks(tracks);
+        
+        // Set initial tracks and find a date where they all race
+        if (tracks.length > 0) {
+          const defaultTrack = tracks.find(t => t.code === 'AQU') || tracks[0];
+          setSelectedTracksState([defaultTrack.code]);
+          
+          if (defaultTrack.dates.length > 0) {
+            // Get most recent date
+            setSelectedDateState(defaultTrack.dates[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load tracks:', err);
+        // Fall back to static tracks
+        setAvailableTracks(AVAILABLE_TRACKS.map(t => ({ ...t, dates: [] })));
+      }
+    };
+    loadTracks();
+  }, []);
   
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const loadedConnections = await loadAndMergeAllTracks();
+      let loadedConnections: Connection[];
+      
+      if (useExcelData && selectedTracks.length > 0 && selectedDate) {
+        // Load from Excel files
+        const allConnections: Connection[] = [];
+        
+        for (const trackCode of selectedTracks) {
+          try {
+            const data = await getDataForDate(selectedDate, trackCode);
+            // Add track info to connections
+            const trackConnections = data.connections.map(c => ({
+              ...c,
+              trackSet: [trackCode],
+            }));
+            allConnections.push(...trackConnections);
+          } catch (err) {
+            console.warn(`Failed to load data for ${trackCode} on ${selectedDate}:`, err);
+          }
+        }
+        
+        loadedConnections = allConnections;
+      } else {
+        // Fall back to old JSON loading
+        loadedConnections = await loadAndMergeAllTracks();
+      }
+      
       setConnections(loadedConnections);
       
       // Generate initial matchups
-      const initialMatchups = generateMatchups(loadedConnections, {
-        count: 10,
-        tolerance,
-      });
-      setMatchups(initialMatchups);
+      if (loadedConnections.length > 0) {
+        const initialMatchups = generateMatchups(loadedConnections, {
+          count: 10,
+          tolerance,
+        });
+        setMatchups(initialMatchups);
+      } else {
+        setMatchups([]);
+      }
       
       // Load rounds from localStorage
       const loadedRounds = loadRounds();
@@ -56,16 +132,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load data";
       setError(errorMessage);
       console.error("Error loading data:", err);
-      // Still set loading to false even on error
-      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }
-  }, [tolerance]);
+  }, [tolerance, useExcelData, selectedTracks, selectedDate]);
   
+  // Load data when tracks or date changes
   useEffect(() => {
-    loadData();
-  }, []); // Only run once on mount
+    if (selectedTracks.length > 0 && selectedDate) {
+      loadData();
+    }
+  }, [selectedTracks, selectedDate, useExcelData]);
   
   const regenerateMatchups = useCallback((options?: MatchupGenerationOptions) => {
     if (connections.length === 0) return;
@@ -90,7 +167,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [connections]);
   
-  const submitRound = useCallback((picks: RoundPick[], entryAmount: number, multiplierLevel: number) => {
+  const setSelectedTracks = useCallback((tracks: string[]) => {
+    setSelectedTracksState(tracks);
+    
+    // Find dates where all selected tracks have races
+    if (tracks.length > 0) {
+      const trackData = availableTracks.filter(t => tracks.includes(t.code));
+      if (trackData.length > 0) {
+        // Find intersection of dates
+        let commonDates = new Set(trackData[0].dates);
+        for (let i = 1; i < trackData.length; i++) {
+          const trackDates = new Set(trackData[i].dates);
+          commonDates = new Set([...commonDates].filter(d => trackDates.has(d)));
+        }
+        
+        const sortedDates = Array.from(commonDates).sort((a, b) => 
+          new Date(b).getTime() - new Date(a).getTime()
+        );
+        
+        // If current date is not in common dates, select the first common date
+        if (sortedDates.length > 0 && !commonDates.has(selectedDate)) {
+          setSelectedDateState(sortedDates[0]);
+        }
+      }
+    }
+  }, [availableTracks, selectedDate]);
+  
+  const setSelectedDate = useCallback((date: string) => {
+    setSelectedDateState(date);
+  }, []);
+  
+  const setUseExcelData = useCallback((useExcel: boolean) => {
+    setUseExcelDataState(useExcel);
+  }, []);
+  
+  const submitRound = useCallback((picks: RoundPick[], entryAmount: number, multiplierValue: number) => {
     if (matchups.length === 0 || entryAmount <= 0 || entryAmount > bankroll) return;
     
     // Calculate winnings based on outcomes
@@ -101,11 +212,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return result.won;
     });
     
-    // Calculate multiplier with house take (28%)
-    // multiplierLevel is 0-based (0 = 2x, 1 = 4x, 2 = 8x, etc.)
-    const baseMultiplier = Math.pow(2, multiplierLevel + 1);
-    const houseTake = 0.28;
-    const finalMultiplier = baseMultiplier * (1 - houseTake);
+    // Use the multiplier value passed directly from the page
+    // The page calculates the correct multiplier based on pick count and flex/standard
+    const finalMultiplier = multiplierValue;
     
     // Regenerate matchups for next round
     if (connections.length > 0) {
@@ -117,7 +226,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     
     const winnings = won ? entryAmount * finalMultiplier : 0;
-    const netResult = winnings - entryAmount;
     
     // Update bankroll
     const newBankroll = bankroll - entryAmount + winnings;
@@ -141,7 +249,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRounds(prev => [round, ...prev].slice(0, 50));
     
     localStorage.setItem("horse-racing-bankroll", String(newBankroll));
-  }, [matchups, bankroll]);
+  }, [matchups, bankroll, connections, tolerance]);
   
   const updateBankroll = useCallback((amount: number) => {
     setBankroll(amount);
@@ -166,11 +274,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         error,
         bankroll,
+        availableTracks,
+        selectedTracks,
+        selectedDate,
+        useExcelData,
         loadData,
         regenerateMatchups,
         setTolerance: handleSetTolerance,
         submitRound,
         updateBankroll,
+        setSelectedTracks,
+        setSelectedDate,
+        setUseExcelData,
       }}
     >
       {children}
@@ -185,4 +300,3 @@ export function useApp() {
   }
   return context;
 }
-
