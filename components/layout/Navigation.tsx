@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Home, BarChart3, Trophy } from "lucide-react";
 
 export function Navigation() {
@@ -50,14 +51,19 @@ export function Navigation() {
             })}
           </div>
           
-          {/* Balance - Right */}
-          <div className="text-right not-italic">
-            <div className="text-[11px] leading-[15px] text-white/70">Balance</div>
-            <div className="text-[14px] leading-5 font-semibold text-white">${bankroll.toFixed(2)}</div>
+          {/* Right side - Theme Toggle and Balance */}
+          <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+            
+            {/* Balance */}
+            <div className="text-right not-italic">
+              <div className="text-[11px] leading-[15px] text-white/70">Balance</div>
+              <div className="text-[14px] leading-5 font-semibold text-white">${bankroll.toFixed(2)}</div>
+            </div>
           </div>
         </div>
       </div>
     </nav>
   );
 }
-

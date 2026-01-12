@@ -5,17 +5,48 @@
 /* Figma tokens mapped to CSS variables */
 :root {
   --text-primary: #080F17;
+  --text-secondary: #3c5066;
   --text-tertiary: #3c5066;
   --blue-50: #E6F0FF;
   --brand: #094AAC;
-  --content-15: #DFE0E2; /* borders / dividers */
-  --content-16: #E7E8E9; /* subtle borders */
-  --content-9: #677a8f; /* muted text color */
-  --btn-link: #0065FF; /* link/button accent */
-  --btn-default: #080F17; /* dark action */
+  --brand-light: #E6F0FF;
+  --content-15: #DFE0E2;
+  --content-16: #E7E8E9;
+  --content-9: #677a8f;
+  --btn-link: #0065FF;
+  --btn-default: #080F17;
   --surface-3: #DFE0E2;
   --chip-outline: #DFE0E2;
   --surface-1: #FFFFFF;
+  --surface-2: #F8F9FA;
+  
+  /* Calendar colors */
+  --calendar-race-day: #3B82F6;
+  --calendar-selected: #EF4444;
+  --calendar-hover: #E6F0FF;
+}
+
+/* Dark mode custom tokens */
+.dark {
+  --text-primary: #F8F9FA;
+  --text-secondary: #A0AEC0;
+  --text-tertiary: #718096;
+  --blue-50: #1E3A5F;
+  --brand: #60A5FA;
+  --brand-light: #1E3A5F;
+  --content-15: #2D3748;
+  --content-16: #374151;
+  --content-9: #A0AEC0;
+  --btn-link: #60A5FA;
+  --btn-default: #F8F9FA;
+  --surface-3: #2D3748;
+  --chip-outline: #4A5568;
+  --surface-1: #111827;
+  --surface-2: #1F2937;
+  
+  --calendar-race-day: #3B82F6;
+  --calendar-selected: #EF4444;
+  --calendar-hover: #1E3A5F;
 }
 
 html {
@@ -34,19 +65,17 @@ body {
   overflow-y: auto;
   overflow-x: hidden;
   scroll-behavior: auto;
-  /* Reduce vertical scroll by 60% - tighter scrolling */
   scroll-snap-type: none;
   -webkit-overflow-scrolling: touch;
   scroll-padding: 0;
   scroll-margin: 0;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Make scrolling 60% tighter - reduce scroll distance */
 * {
   scroll-behavior: auto;
 }
 
-/* Reduce elastic scrolling by making containers more rigid */
 .scroll-container {
   overscroll-behavior: contain;
   scroll-behavior: auto;
@@ -56,14 +85,6 @@ body {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
 }
 
 @layer base {

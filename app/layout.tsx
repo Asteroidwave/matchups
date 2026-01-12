@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AppProvider } from '@/contexts/AppContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Navigation } from '@/components/layout/Navigation';
 import { Analytics } from "@vercel/analytics/react";
 
@@ -18,15 +19,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AppProvider>
-          <Navigation />
-          {children}
-          <Analytics />
-        </AppProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.className} bg-[var(--surface-1)] text-[var(--text-primary)] transition-colors`}>
+        <ThemeProvider>
+          <AppProvider>
+            <Navigation />
+            {children}
+            <Analytics />
+          </AppProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
-

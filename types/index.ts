@@ -9,11 +9,22 @@ export interface Starter {
   sire1?: string;
   sire2?: string;
   mlOddsFrac?: string;
+  mlOdds?: number;
   decimalOdds?: number;
   salary?: number;
   points?: number;
   pos?: number;
   scratched?: boolean;
+}
+
+export interface PastPerformanceEntry {
+  date: string;
+  track: string;
+  race: number;
+  horse: string;
+  finish: number;
+  totalPoints: number;
+  finalOdds: number;
 }
 
 export interface Connection {
@@ -23,22 +34,40 @@ export interface Connection {
   trackSet: string[];
   apps: number;
   avgOdds: number;
+  avgSalary?: number;
   salarySum: number;
   pointsSum: number;
   avpa30d: number;
   avpaRace: number;
   starters: Starter[];
+  // New fields for MU/Sigma analysis
+  mu?: number;           // Expected points
+  sigma?: number;        // Volatility
+  winRate?: number;      // Win percentage
+  itmRate?: number;      // In the money percentage
+  avgFinish?: number;    // Average finish position
+  pastPerformance?: PastPerformanceEntry[];
 }
 
 export interface SetSide {
   connections: Connection[];
   salaryTotal: number;
+  totalSalary?: number;
+  totalAvpaRace?: number;
+  // New fields for MU/Sigma
+  mu?: number;
+  sigma?: number;
+  winProbability?: number;
 }
 
 export interface Matchup {
   id: string;
   setA: SetSide;
   setB: SetSide;
+  setC?: SetSide;  // For 1v1v1 matchups
+  matchupType?: string;
+  type?: '1v1' | '1v1v1' | '2v1' | '1v2';
+  balance?: number;  // How balanced the matchup is (0-100)
 }
 
 export interface RoundPick {
