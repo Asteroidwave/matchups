@@ -1,10 +1,12 @@
 /**
  * Matchup Engine
- * Generates balanced 1v1 and 1v1v1 matchups using MU and Sigma
+ * Generates balanced matchups of various types:
+ * - 1v1, 2v1, 1v2 (2-way matchups)
+ * - 1v1v1, 2v1v1, 1v2v1, 1v1v2 (3-way matchups)
+ * Uses MU (expected points) and Sigma (volatility) for balance
  */
 
 import { Connection, Matchup, SetSide } from '@/types';
-import { getMuSigmaForOdds } from './data-loader';
 
 // Standard normal distribution CDF approximation
 function normalCDF(x: number): number {
@@ -116,13 +118,18 @@ export function calculateSetMuSigma(connections: Connection[]): { mu: number; si
   let totalVariance = 0;
 
   for (const conn of connections) {
-    // Use connection's salary to estimate odds, or use a default
-    const estimatedOdds = conn.avgSalary ? salaryToOdds(conn.avgSalary) : 10;
-    const { mu, sigma } = getMuSigmaForOdds(estimatedOdds);
-    
-    totalMu += mu;
-    // Variances add for independent random variables
-    totalVariance += sigma * sigma;
+    // Use connection's mu/sigma if available, otherwise estimate from salary/odds
+    if (conn.mu !== undefined && conn.sigma !== undefined) {
+      totalMu += conn.mu;
+      totalVariance += conn.sigma * conn.sigma;
+    } else {
+      // Fallback: estimate from AVPA and apps
+      const estimatedMu = (conn.avpa30d || conn.avpaRace || 8) * (conn.apps || 1);
+      const estimatedSigma = estimatedMu * 0.5; // 50% volatility
+      
+      totalMu += estimatedMu;
+      totalVariance += estimatedSigma * estimatedSigma;
+    }
   }
 
   return {
@@ -132,18 +139,11 @@ export function calculateSetMuSigma(connections: Connection[]): { mu: number; si
 }
 
 /**
- * Estimate odds from salary (rough approximation)
+ * Get connection MU for sorting
  */
-function salaryToOdds(salary: number): number {
-  // Higher salary = lower odds (favorites)
-  // This is a rough approximation based on typical DFS salary structures
-  if (salary >= 10000) return 1.5;
-  if (salary >= 9000) return 3;
-  if (salary >= 8000) return 5;
-  if (salary >= 7000) return 8;
-  if (salary >= 6000) return 12;
-  if (salary >= 5000) return 20;
-  return 30;
+function getConnectionMu(conn: Connection): number {
+  if (conn.mu !== undefined) return conn.mu;
+  return (conn.avpa30d || conn.avpaRace || 8) * (conn.apps || 1);
 }
 
 /**
@@ -157,11 +157,9 @@ export function generate1v1Matchups(
   const matchups: Matchup[] = [];
   const usedConnections = new Set<string>();
 
-  // Sort connections by their estimated MU for better pairing
+  // Sort connections by their MU for better pairing
   const sortedConnections = [...connections].sort((a, b) => {
-    const muA = getMuSigmaForOdds(salaryToOdds(a.avgSalary || 7000)).mu;
-    const muB = getMuSigmaForOdds(salaryToOdds(b.avgSalary || 7000)).mu;
-    return muB - muA;
+    return getConnectionMu(b) - getConnectionMu(a);
   });
 
   for (let i = 0; i < sortedConnections.length && matchups.length < maxMatchups; i++) {
@@ -207,7 +205,8 @@ export function generate1v1Matchups(
         type: '1v1',
         setA: {
           connections: [connA],
-          totalSalary: connA.avgSalary || 0,
+          salaryTotal: connA.salarySum || 0,
+          totalSalary: connA.salarySum || 0,
           totalAvpaRace: connA.avpaRace || 0,
           mu: statsA.mu,
           sigma: statsA.sigma,
@@ -215,8 +214,100 @@ export function generate1v1Matchups(
         },
         setB: {
           connections: [bestMatch],
-          totalSalary: bestMatch.avgSalary || 0,
+          salaryTotal: bestMatch.salarySum || 0,
+          totalSalary: bestMatch.salarySum || 0,
           totalAvpaRace: bestMatch.avpaRace || 0,
+          mu: statsB.mu,
+          sigma: statsB.sigma,
+          winProbability: 1 - probA,
+        },
+        balance: Math.round((1 - Math.abs(probA - 0.5) * 2) * 100),
+      };
+
+      matchups.push(matchup);
+    }
+  }
+
+  return matchups;
+}
+
+/**
+ * Generate balanced 2v1 matchups (2 connections vs 1 connection, targeting 50/50)
+ */
+export function generate2v1Matchups(
+  connections: Connection[],
+  tolerance: number = 0.15,
+  maxMatchups: number = 20
+): Matchup[] {
+  const matchups: Matchup[] = [];
+  const usedConnections = new Set<string>();
+
+  const sortedConnections = [...connections].sort((a, b) => {
+    return getConnectionMu(b) - getConnectionMu(a);
+  });
+
+  // Pick the strongest connection for set A (single)
+  for (let i = 0; i < sortedConnections.length && matchups.length < maxMatchups; i++) {
+    if (usedConnections.has(sortedConnections[i].id)) continue;
+
+    const connA = sortedConnections[i];
+    const statsA = calculateSetMuSigma([connA]);
+
+    // Find best pair for set B
+    let bestPair: [Connection, Connection] | null = null;
+    let bestProbDiff = Infinity;
+
+    for (let j = i + 1; j < sortedConnections.length - 1; j++) {
+      if (usedConnections.has(sortedConnections[j].id)) continue;
+      
+      for (let k = j + 1; k < sortedConnections.length; k++) {
+        if (usedConnections.has(sortedConnections[k].id)) continue;
+
+        const connB1 = sortedConnections[j];
+        const connB2 = sortedConnections[k];
+        const statsB = calculateSetMuSigma([connB1, connB2]);
+
+        const probA = calculateHeadToHeadProbability(
+          statsA.mu, statsA.sigma,
+          statsB.mu, statsB.sigma
+        );
+
+        const diff = Math.abs(probA - 0.5);
+        if (diff < bestProbDiff && diff <= tolerance) {
+          bestProbDiff = diff;
+          bestPair = [connB1, connB2];
+        }
+      }
+    }
+
+    if (bestPair) {
+      usedConnections.add(connA.id);
+      usedConnections.add(bestPair[0].id);
+      usedConnections.add(bestPair[1].id);
+
+      const statsB = calculateSetMuSigma(bestPair);
+      const probA = calculateHeadToHeadProbability(
+        statsA.mu, statsA.sigma,
+        statsB.mu, statsB.sigma
+      );
+
+      const matchup: Matchup = {
+        id: `1v2-${matchups.length + 1}`,
+        type: '1v2',
+        setA: {
+          connections: [connA],
+          salaryTotal: connA.salarySum || 0,
+          totalSalary: connA.salarySum || 0,
+          totalAvpaRace: connA.avpaRace || 0,
+          mu: statsA.mu,
+          sigma: statsA.sigma,
+          winProbability: probA,
+        },
+        setB: {
+          connections: bestPair,
+          salaryTotal: bestPair.reduce((sum, c) => sum + (c.salarySum || 0), 0),
+          totalSalary: bestPair.reduce((sum, c) => sum + (c.salarySum || 0), 0),
+          totalAvpaRace: bestPair.reduce((sum, c) => sum + (c.avpaRace || 0), 0),
           mu: statsB.mu,
           sigma: statsB.sigma,
           winProbability: 1 - probA,
@@ -244,9 +335,7 @@ export function generate1v1v1Matchups(
 
   // Sort by MU
   const sortedConnections = [...connections].sort((a, b) => {
-    const muA = getMuSigmaForOdds(salaryToOdds(a.avgSalary || 7000)).mu;
-    const muB = getMuSigmaForOdds(salaryToOdds(b.avgSalary || 7000)).mu;
-    return muB - muA;
+    return getConnectionMu(b) - getConnectionMu(a);
   });
 
   for (let i = 0; i < sortedConnections.length - 2 && matchups.length < maxMatchups; i++) {
@@ -308,7 +397,8 @@ export function generate1v1v1Matchups(
         type: '1v1v1',
         setA: {
           connections: [connA],
-          totalSalary: connA.avgSalary || 0,
+          salaryTotal: connA.salarySum || 0,
+          totalSalary: connA.salarySum || 0,
           totalAvpaRace: connA.avpaRace || 0,
           mu: statsA.mu,
           sigma: statsA.sigma,
@@ -316,7 +406,8 @@ export function generate1v1v1Matchups(
         },
         setB: {
           connections: [bestMatchB],
-          totalSalary: bestMatchB.avgSalary || 0,
+          salaryTotal: bestMatchB.salarySum || 0,
+          totalSalary: bestMatchB.salarySum || 0,
           totalAvpaRace: bestMatchB.avpaRace || 0,
           mu: statsB.mu,
           sigma: statsB.sigma,
@@ -324,7 +415,8 @@ export function generate1v1v1Matchups(
         },
         setC: {
           connections: [bestMatchC],
-          totalSalary: bestMatchC.avgSalary || 0,
+          salaryTotal: bestMatchC.salarySum || 0,
+          totalSalary: bestMatchC.salarySum || 0,
           totalAvpaRace: bestMatchC.avpaRace || 0,
           mu: statsC.mu,
           sigma: statsC.sigma,
@@ -341,25 +433,191 @@ export function generate1v1v1Matchups(
 }
 
 /**
- * Generate all matchups with a mix of 1v1 and 1v1v1
+ * Generate 2v1v1 matchups (2 connections vs 1 vs 1, targeting 33/33/33)
+ */
+export function generate2v1v1Matchups(
+  connections: Connection[],
+  tolerance: number = 0.15,
+  maxMatchups: number = 10
+): Matchup[] {
+  const matchups: Matchup[] = [];
+  const usedConnections = new Set<string>();
+
+  const sortedConnections = [...connections].sort((a, b) => {
+    return getConnectionMu(b) - getConnectionMu(a);
+  });
+
+  for (let i = 0; i < sortedConnections.length - 3 && matchups.length < maxMatchups; i++) {
+    if (usedConnections.has(sortedConnections[i].id)) continue;
+
+    // Set A will have 2 connections
+    for (let i2 = i + 1; i2 < sortedConnections.length - 2; i2++) {
+      if (usedConnections.has(sortedConnections[i2].id)) continue;
+
+      const setAConns = [sortedConnections[i], sortedConnections[i2]];
+      const statsA = calculateSetMuSigma(setAConns);
+
+      let bestMatchB: Connection | null = null;
+      let bestMatchC: Connection | null = null;
+      let bestMaxDiff = Infinity;
+
+      for (let j = i2 + 1; j < sortedConnections.length - 1; j++) {
+        if (usedConnections.has(sortedConnections[j].id)) continue;
+        const connB = sortedConnections[j];
+        const statsB = calculateSetMuSigma([connB]);
+
+        for (let k = j + 1; k < sortedConnections.length; k++) {
+          if (usedConnections.has(sortedConnections[k].id)) continue;
+          const connC = sortedConnections[k];
+          const statsC = calculateSetMuSigma([connC]);
+
+          const { pA, pB, pC } = calculate1v1v1Probabilities(
+            statsA.mu, statsA.sigma,
+            statsB.mu, statsB.sigma,
+            statsC.mu, statsC.sigma
+          );
+
+          const maxDiff = Math.max(
+            Math.abs(pA - 0.333),
+            Math.abs(pB - 0.333),
+            Math.abs(pC - 0.333)
+          );
+
+          if (maxDiff < bestMaxDiff && maxDiff <= tolerance) {
+            bestMaxDiff = maxDiff;
+            bestMatchB = connB;
+            bestMatchC = connC;
+          }
+        }
+      }
+
+      if (bestMatchB && bestMatchC) {
+        setAConns.forEach(c => usedConnections.add(c.id));
+        usedConnections.add(bestMatchB.id);
+        usedConnections.add(bestMatchC.id);
+
+        const statsB = calculateSetMuSigma([bestMatchB]);
+        const statsC = calculateSetMuSigma([bestMatchC]);
+        const { pA, pB, pC } = calculate1v1v1Probabilities(
+          statsA.mu, statsA.sigma,
+          statsB.mu, statsB.sigma,
+          statsC.mu, statsC.sigma
+        );
+
+        const matchup: Matchup = {
+          id: `2v1v1-${matchups.length + 1}`,
+          matchupType: '2v1v1',
+          setA: {
+            connections: setAConns,
+            salaryTotal: setAConns.reduce((sum, c) => sum + (c.salarySum || 0), 0),
+            totalSalary: setAConns.reduce((sum, c) => sum + (c.salarySum || 0), 0),
+            totalAvpaRace: setAConns.reduce((sum, c) => sum + (c.avpaRace || 0), 0),
+            mu: statsA.mu,
+            sigma: statsA.sigma,
+            winProbability: pA,
+          },
+          setB: {
+            connections: [bestMatchB],
+            salaryTotal: bestMatchB.salarySum || 0,
+            totalSalary: bestMatchB.salarySum || 0,
+            totalAvpaRace: bestMatchB.avpaRace || 0,
+            mu: statsB.mu,
+            sigma: statsB.sigma,
+            winProbability: pB,
+          },
+          setC: {
+            connections: [bestMatchC],
+            salaryTotal: bestMatchC.salarySum || 0,
+            totalSalary: bestMatchC.salarySum || 0,
+            totalAvpaRace: bestMatchC.avpaRace || 0,
+            mu: statsC.mu,
+            sigma: statsC.sigma,
+            winProbability: pC,
+          },
+          balance: Math.round((1 - bestMaxDiff * 3) * 100),
+        };
+
+        matchups.push(matchup);
+        break; // Move to next i
+      }
+    }
+  }
+
+  return matchups;
+}
+
+/**
+ * Generate all matchups with a mix of types
  */
 export function generateAllMatchups(
   connections: Connection[],
   options: {
     max1v1?: number;
+    max2v1?: number;
     max1v1v1?: number;
+    max2v1v1?: number;
     tolerance?: number;
   } = {}
-): { matchups1v1: Matchup[]; matchups1v1v1: Matchup[] } {
-  const { max1v1 = 40, max1v1v1 = 15, tolerance = 0.15 } = options;
+): { 
+  matchups1v1: Matchup[]; 
+  matchups2v1: Matchup[];
+  matchups1v1v1: Matchup[];
+  matchups2v1v1: Matchup[];
+  all: Matchup[];
+} {
+  const { 
+    max1v1 = 30, 
+    max2v1 = 10,
+    max1v1v1 = 10, 
+    max2v1v1 = 5,
+    tolerance = 0.15 
+  } = options;
 
-  // Split connections for different matchup types
+  // Shuffle connections
   const shuffled = [...connections].sort(() => Math.random() - 0.5);
-  const for1v1 = shuffled.slice(0, Math.floor(shuffled.length * 0.7));
-  const for1v1v1 = shuffled.slice(Math.floor(shuffled.length * 0.3));
+  
+  // Generate different matchup types
+  const matchups1v1 = generate1v1Matchups(shuffled, tolerance, max1v1);
+  
+  // Get unused connections for other types
+  const used1v1 = new Set(matchups1v1.flatMap(m => [...m.setA.connections, ...m.setB.connections].map(c => c.id)));
+  const remaining1 = shuffled.filter(c => !used1v1.has(c.id));
+  
+  const matchups2v1 = generate2v1Matchups(remaining1, tolerance, max2v1);
+  
+  const used2v1 = new Set(matchups2v1.flatMap(m => [...m.setA.connections, ...m.setB.connections].map(c => c.id)));
+  const remaining2 = remaining1.filter(c => !used2v1.has(c.id));
+  
+  const matchups1v1v1 = generate1v1v1Matchups(remaining2, tolerance, max1v1v1);
+  
+  const used1v1v1 = new Set(matchups1v1v1.flatMap(m => 
+    [...m.setA.connections, ...m.setB.connections, ...(m.setC?.connections || [])].map(c => c.id)
+  ));
+  const remaining3 = remaining2.filter(c => !used1v1v1.has(c.id));
+  
+  const matchups2v1v1 = generate2v1v1Matchups(remaining3, tolerance, max2v1v1);
 
-  const matchups1v1 = generate1v1Matchups(for1v1, tolerance, max1v1);
-  const matchups1v1v1 = generate1v1v1Matchups(for1v1v1, tolerance, max1v1v1);
+  // Combine all matchups
+  const all = [
+    ...matchups1v1,
+    ...matchups2v1,
+    ...matchups1v1v1,
+    ...matchups2v1v1,
+  ];
 
-  return { matchups1v1, matchups1v1v1 };
+  return { matchups1v1, matchups2v1, matchups1v1v1, matchups2v1v1, all };
+}
+
+/**
+ * Get matchup type label
+ */
+export function getMatchupTypeLabel(matchup: Matchup): string {
+  const aCount = matchup.setA.connections.length;
+  const bCount = matchup.setB.connections.length;
+  const cCount = matchup.setC?.connections.length || 0;
+  
+  if (cCount > 0) {
+    return `${aCount}v${bCount}v${cCount}`;
+  }
+  return `${aCount}v${bCount}`;
 }
