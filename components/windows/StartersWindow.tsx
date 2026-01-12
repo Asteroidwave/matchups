@@ -14,10 +14,16 @@ interface StartersWindowProps {
 }
 
 const trackColors: Record<string, { bg: string; border: string; text: string }> = {
-  BAQ: { bg: "bg-blue-500/10", border: "border-blue-500", text: "text-blue-700" },
-  GP: { bg: "bg-green-500/10", border: "border-green-500", text: "text-green-700" },
-  KEE: { bg: "bg-purple-500/10", border: "border-purple-500", text: "text-purple-700" },
-  SA: { bg: "bg-red-500/10", border: "border-red-500", text: "text-red-700" },
+  BAQ: { bg: "bg-blue-500/20", border: "border-blue-500", text: "text-blue-600 dark:text-blue-400" },
+  GP: { bg: "bg-green-500/20", border: "border-green-500", text: "text-green-600 dark:text-green-400" },
+  KEE: { bg: "bg-purple-500/20", border: "border-purple-500", text: "text-purple-600 dark:text-purple-400" },
+  SA: { bg: "bg-red-500/20", border: "border-red-500", text: "text-red-600 dark:text-red-400" },
+  AQU: { bg: "bg-blue-500/20", border: "border-blue-500", text: "text-blue-600 dark:text-blue-400" },
+  DMR: { bg: "bg-cyan-500/20", border: "border-cyan-500", text: "text-cyan-600 dark:text-cyan-400" },
+  LRL: { bg: "bg-pink-500/20", border: "border-pink-500", text: "text-pink-600 dark:text-pink-400" },
+  MVR: { bg: "bg-amber-500/20", border: "border-amber-500", text: "text-amber-600 dark:text-amber-400" },
+  PEN: { bg: "bg-violet-500/20", border: "border-violet-500", text: "text-violet-600 dark:text-violet-400" },
+  PRX: { bg: "bg-rose-500/20", border: "border-rose-500", text: "text-rose-600 dark:text-rose-400" },
 };
 
 export function StartersWindow({
@@ -117,8 +123,8 @@ export function StartersWindow({
     return map;
   }, [connections]);
   
-  // Get all unique tracks
-  const allTracks = ["BAQ", "GP", "KEE", "SA"];
+  // Get all unique tracks from DATA folder
+  const allTracks = ["AQU", "DMR", "GP", "LRL", "MVR", "PEN", "PRX", "SA"];
   
   // Get all starters, filtered by selected connection if filtering
   const allStarters: (Starter & { connectionType: "jockey" | "trainer" | "sire"; connectionName: string })[] = [];
@@ -221,20 +227,20 @@ export function StartersWindow({
           {/* View Mode Buttons */}
           <button
             onClick={() => handleViewModeChange("horses")}
-            className={`px-2 py-1 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap border ${
               viewMode === "horses"
-                ? "bg-[var(--btn-default)] text-white"
-                : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)] hover:border-[var(--brand)]"
             }`}
           >
             Horses
           </button>
           <button
             onClick={() => handleViewModeChange("connected")}
-            className={`px-2 py-1 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap border ${
               viewMode === "connected"
-                ? "bg-[var(--btn-default)] text-white"
-                : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)] hover:border-[var(--brand)]"
             }`}
           >
             Connected Horses
@@ -246,10 +252,10 @@ export function StartersWindow({
           {/* Track Filter Buttons */}
           <button
             onClick={() => setSelectedTrack("ALL")}
-            className={`px-2 py-1 rounded text-[13px] font-medium transition-colors whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors whitespace-nowrap border ${
               selectedTrack === "ALL"
-                ? "bg-[var(--btn-default)] text-white"
-                : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)] hover:border-[var(--brand)]"
             }`}
           >
             All Tracks
@@ -260,10 +266,10 @@ export function StartersWindow({
               <button
                 key={track}
                 onClick={() => setSelectedTrack(track)}
-                className={`px-2 py-1 rounded text-[13px] font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors whitespace-nowrap border ${
                   selectedTrack === track
                     ? `${color.bg} ${color.text} border-2 ${color.border}`
-                    : "bg-[var(--blue-50)] text-[var(--brand)] hover:opacity-90"
+                    : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)]"
                 }`}
               >
                 {track}
@@ -329,7 +335,18 @@ export function StartersWindow({
         <div className="flex flex-col">
           {races.map(([key, starters]) => {
             const [track, raceNum] = key.split("-");
-            const trackFull = { BAQ: "Belmont", GP: "Gulfstream Park", KEE: "Keeneland", SA: "Santa Anita" } as const;
+            const trackFull = { 
+              AQU: "Aqueduct", 
+              DMR: "Del Mar", 
+              GP: "Gulfstream Park", 
+              LRL: "Laurel Park", 
+              MVR: "Mahoning Valley", 
+              PEN: "Penn National", 
+              PRX: "Parx", 
+              SA: "Santa Anita",
+              BAQ: "Belmont",
+              KEE: "Keeneland"
+            } as const;
             const dateStr = "October 3, 2025";
             return (
               <div key={key} className="w-full">
