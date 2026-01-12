@@ -134,18 +134,18 @@ export default function ResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--surface-1)]">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">Results</h1>
-            <div className="text-sm text-gray-600">View your round history</div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-1">Results</h1>
+            <div className="text-sm text-[var(--text-secondary)]">View your round history</div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <div className="text-xs text-gray-500">Bankroll</div>
-              <div className="text-xl font-bold text-gray-900">${bankroll.toFixed(2)}</div>
+              <div className="text-xs text-[var(--text-tertiary)]">Bankroll</div>
+              <div className="text-xl font-bold text-[var(--text-primary)]">${bankroll.toFixed(2)}</div>
             </div>
           <Button
             onClick={() => {
@@ -153,7 +153,7 @@ export default function ResultsPage() {
               regenerateMatchups({ tolerance });
               router.push("/matchups");
             }}
-            className="bg-gray-900 hover:bg-gray-800 text-white"
+            className="bg-[var(--brand)] hover:bg-[var(--brand)]/90 text-white"
           >
             New Round
           </Button>
@@ -161,11 +161,11 @@ export default function ResultsPage() {
         </div>
 
         {rounds.length === 0 ? (
-            <Card className="p-12 text-center bg-white">
-              <div className="text-gray-500 mb-4">No rounds submitted yet</div>
+            <Card className="p-12 text-center bg-[var(--surface-1)] border border-[var(--content-15)]">
+              <div className="text-[var(--text-secondary)] mb-4">No rounds submitted yet</div>
               <Button
                 onClick={() => router.push("/matchups")}
-              className="bg-gray-900 hover:bg-gray-800 text-white"
+              className="bg-[var(--brand)] hover:bg-[var(--brand)]/90 text-white"
               >
                 Create Your First Round
               </Button>
@@ -174,32 +174,32 @@ export default function ResultsPage() {
           <div className="space-y-2">
             {rounds.map((round) => {
               const results = getRoundResults(round);
-              const netColor = results.netResult >= 0 ? "text-green-600" : "text-red-600";
+              const netColor = results.netResult >= 0 ? "text-[var(--success)]" : "text-[var(--error)]";
               const isExpanded = expandedRounds.has(round.id);
               
               return (
-                <Card key={round.id} className="bg-white border border-gray-200">
+                <Card key={round.id} className="bg-[var(--surface-1)] border border-[var(--content-15)]">
                   {/* Round Summary Header - Always Visible */}
                   <div
-                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="p-4 cursor-pointer hover:bg-[var(--surface-2)] transition-colors"
                     onClick={() => toggleRound(round.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1 min-w-0">
                         {/* Pick Count and Amount - Stacked */}
                         <div className="flex-shrink-0">
-                          <div className="font-semibold text-gray-900">
+                          <div className="font-semibold text-[var(--text-primary)]">
                             {results.picksCount} Pick{results.picksCount !== 1 ? "s" : ""}
                           </div>
-                          <div className="font-semibold text-gray-900">
+                          <div className="font-semibold text-[var(--text-primary)]">
                             ${results.entryAmount.toFixed(2)}
                           </div>
                         </div>
                         {/* Connection Names - Limited to 3 */}
-                        <div className="text-sm text-gray-600 min-w-0 flex-shrink">
+                        <div className="text-sm text-[var(--text-secondary)] min-w-0 flex-shrink">
                           {results.connectionNames.slice(0, 3).join(", ")}
                           {results.connectionNames.length > 3 && (
-                            <span className="text-gray-500"> +{results.connectionNames.length - 3}</span>
+                            <span className="text-[var(--text-tertiary)]"> +{results.connectionNames.length - 3}</span>
                           )}
                         </div>
                       </div>
@@ -212,8 +212,8 @@ export default function ResultsPage() {
                               key={`result-${idx}`}
                               className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                                 result.won
-                                  ? "bg-green-500 text-white"
-                                  : "bg-red-500 text-white"
+                                  ? "bg-[var(--success)] text-white"
+                                  : "bg-[var(--error)] text-white"
                               }`}
                             >
                               {result.won ? "✓" : "✗"}
@@ -224,9 +224,9 @@ export default function ResultsPage() {
                           {results.netResult >= 0 ? "Won" : "Lost"} ${Math.abs(results.netResult).toFixed(2)}
                         </div>
                         {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                          <ChevronDown className="w-5 h-5 text-[var(--text-tertiary)]" />
                         ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                          <ChevronRight className="w-5 h-5 text-[var(--text-tertiary)]" />
                         )}
                       </div>
                     </div>
@@ -234,7 +234,7 @@ export default function ResultsPage() {
                   
                   {/* Expanded Individual Pick Cards */}
                   {isExpanded && (
-                    <div className="border-t border-gray-200 p-4 space-y-3">
+                    <div className="border-t border-[var(--content-15)] p-4 space-y-3">
                       {round.picks.map((pick, idx) => {
                         const result = results.individualResults[idx];
                         const matchup = round.matchups.find(m => m.id === pick.matchupId);
@@ -248,23 +248,23 @@ export default function ResultsPage() {
                         return (
                           <div
                             key={pick.matchupId}
-                            className="bg-gray-50 rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow flex items-center justify-between"
+                            className="bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)] p-4 hover:shadow-sm transition-shadow flex items-center justify-between"
                           >
                             <div className="flex items-center gap-4 flex-1">
                               <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                                   result.won
-                                    ? "bg-green-500 text-white"
-                                    : "bg-red-500 text-white"
+                                    ? "bg-[var(--success)] text-white"
+                                    : "bg-[var(--error)] text-white"
                                 }`}
                               >
                                 {result.won ? "✓" : "✗"}
                               </div>
                               <div className="flex-1">
-                                <div className="font-semibold text-gray-900 mb-1">
+                                <div className="font-semibold text-[var(--text-primary)] mb-1">
                                   Pick {idx + 1}: {primaryName}
                                 </div>
-                                <div className="text-sm text-gray-600">
+                                <div className="text-sm text-[var(--text-secondary)]">
                                   Set {pick.chosen} • {setPoints.toFixed(1)} pts
                                 </div>
                               </div>

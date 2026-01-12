@@ -196,7 +196,7 @@ export function TrackDatePicker({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div 
         ref={modalRef}
-        className="bg-[var(--surface-1)] border border-[var(--content-15)] rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+        className="bg-[var(--surface-1)] border border-[var(--content-15)] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-[var(--content-15)] flex items-center justify-between">

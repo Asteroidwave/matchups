@@ -220,14 +220,14 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             <div style={{ width: '100%' }}>
               <table className="w-full">
                 {/* Table Header - Sticky (matching Figma table-header) */}
-                <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
+                <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
                   <tr>
-                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-0 pt-2 text-left">
+                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-4 pr-2 pt-2 text-left">
                       <div className="flex items-center">
-                        <div className="flex flex-col gap-2 w-[140px]">
+                        <div className="flex flex-col gap-2 w-[120px]">
                           <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
                         </div>
-                        <div className="flex flex-col flex-1 ml-[144px]">
+                        <div className="flex flex-col flex-1 ml-2">
                           <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Connections</p>
                         </div>
                       </div>
@@ -258,8 +258,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Horse Column - div.top style (140px width matching Figma) */}
-                              <td className="w-[140px] py-3 pl-5 pr-0 align-top">
+                              {/* Horse Column - div.top style (120px width - reduced for more connection space) */}
+                              <td className="w-[120px] py-3 pl-4 pr-0 align-top">
                                 <div className="flex flex-col gap-1.5">
                                   {/* PP and Odds in a row */}
                                   <div className="flex items-center gap-1.5">
@@ -268,18 +268,18 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                     }`}>
                                       {post || "—"}
                                     </span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                    <span className="text-[13px] font-medium leading-[20px] text-[var(--text-primary)]">
                                       {starter.mlOddsFrac || "—"}
                                     </span>
                                   </div>
                                   {/* Horse Name */}
-                                  <div className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                  <div className="text-[13px] font-medium leading-[20px] text-[var(--text-primary)] truncate max-w-[100px]">
                                     {starter.horseName}
                                   </div>
                                 </div>
                               </td>
-                              {/* Connections Column - Frame style with 144px gap from horse column */}
-                              <td className="flex-1 pl-[144px] align-top">
+                              {/* Connections Column - Wider grid with less gap from horse column */}
+                              <td className="flex-1 pl-2 pr-2 align-top">
                                 <div className="grid grid-cols-2 border border-[var(--content-15)]">
                                   {/* Top row: Jockey and Trainer */}
                                   <div className={`border-r border-b border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${

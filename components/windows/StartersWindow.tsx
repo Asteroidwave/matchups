@@ -11,6 +11,8 @@ interface StartersWindowProps {
   readonly onConnectionBoxClick?: (connection: Connection) => void;
   readonly matchups?: Array<{ setA: { connections: Connection[] }; setB: { connections: Connection[] } }>;
   readonly onConnectionClickToMatchup?: (connectionId: string, fromConnectedHorsesView: boolean) => void;
+  readonly selectedTracks?: string[];
+  readonly selectedDate?: string;
 }
 
 const trackColors: Record<string, { bg: string; border: string; text: string }> = {
@@ -33,9 +35,14 @@ export function StartersWindow({
   onConnectionBoxClick,
   matchups = [],
   onConnectionClickToMatchup,
+  selectedTracks = [],
+  selectedDate,
 }: StartersWindowProps) {
-  const [selectedTrack, setSelectedTrack] = useState<string>("ALL");
+  const [activeTrackFilter, setActiveTrackFilter] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"horses" | "connected">("horses");
+  
+  // Use selectedTracks from calendar picker if available, otherwise show ALL
+  const tracksToShow = selectedTracks.length > 0 ? selectedTracks : ["ALL"];
   
   // Get all connection IDs that are in matchups (for "Connected Horses" filter)
   const matchupConnectionIds = useMemo(() => {
@@ -123,8 +130,12 @@ export function StartersWindow({
     return map;
   }, [connections]);
   
-  // Get all unique tracks from DATA folder
-  const allTracks = ["AQU", "DMR", "GP", "LRL", "MVR", "PEN", "PRX", "SA"];
+  // Format date for display
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "October 3, 2025";
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
   
   // Get all starters, filtered by selected connection if filtering
   const allStarters: (Starter & { connectionType: "jockey" | "trainer" | "sire"; connectionName: string })[] = [];
@@ -138,8 +149,12 @@ export function StartersWindow({
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
       
-      // Filter by track
-      if (selectedTrack !== "ALL" && starter.track !== selectedTrack) continue;
+      // Filter by track - if selectedTracks from calendar, filter by those, else use active filter
+      if (selectedTracks.length > 0) {
+        if (!selectedTracks.includes(starter.track)) continue;
+      } else if (activeTrackFilter !== "ALL" && starter.track !== activeTrackFilter) {
+        continue;
+      }
       
       // Filter by selected connection if filtering (works in both horses and connected view)
       if (selectedConnection) {
@@ -246,36 +261,23 @@ export function StartersWindow({
             Connected Horses
           </button>
           
-          {/* Visual Separator */}
-          <div className="w-px h-4 bg-[var(--content-15)] mx-01"></div>
-          
-          {/* Track Filter Buttons */}
-          <button
-            onClick={() => setSelectedTrack("ALL")}
-            className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors whitespace-nowrap border ${
-              selectedTrack === "ALL"
-                ? "bg-[var(--brand)] text-white border-[var(--brand)]"
-                : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)] hover:border-[var(--brand)]"
-            }`}
-          >
-            All Tracks
-          </button>
-          {allTracks.map((track) => {
-            const color = trackColors[track];
-            return (
-              <button
-                key={track}
-                onClick={() => setSelectedTrack(track)}
-                className={`px-3 py-1.5 rounded text-[13px] font-medium transition-colors whitespace-nowrap border ${
-                  selectedTrack === track
-                    ? `${color.bg} ${color.text} border-2 ${color.border}`
-                    : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)]"
-                }`}
-              >
-                {track}
-              </button>
-            );
-          })}
+          {/* Show selected tracks from calendar picker (if any) */}
+          {selectedTracks.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-[var(--content-15)] mx-1"></div>
+              {selectedTracks.map((track) => {
+                const color = trackColors[track] || { bg: "bg-gray-500/20", border: "border-gray-500", text: "text-gray-600 dark:text-gray-400" };
+                return (
+                  <span
+                    key={track}
+                    className={`px-3 py-1.5 rounded text-[13px] font-medium whitespace-nowrap ${color.bg} ${color.text} border ${color.border}`}
+                  >
+                    {track}
+                  </span>
+                );
+              })}
+            </>
+          )}
         </div>
         
         {selectedConnection && (
@@ -347,12 +349,12 @@ export function StartersWindow({
               BAQ: "Belmont",
               KEE: "Keeneland"
             } as const;
-            const dateStr = "October 3, 2025";
+            const displayDate = formatDate(selectedDate);
             return (
               <div key={key} className="w-full">
                 {/* Grey band header */}
                 <div className="bg-[var(--content-15)] text-[var(--text-primary)] text-[12px] leading-[18px] font-medium px-4 py-1">
-                  {dateStr}, {trackFull[track as keyof typeof trackFull] || track}, Race {raceNum}
+                  {displayDate}, {trackFull[track as keyof typeof trackFull] || track}, Race {raceNum}
                 </div>
                 {/* Rows */}
                 {starters.map((starter, idx) => {
@@ -401,8 +403,8 @@ export function StartersWindow({
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
                               selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
-                                ? "bg-white text-[var(--brand)]"
-                                : "bg-[var(--blue-50)] text-[var(--brand)]"
+                                ? "bg-white text-[var(--jockey)]"
+                                : "bg-[var(--jockey)] text-white"
                             }`}>J</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
                               selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
@@ -430,8 +432,8 @@ export function StartersWindow({
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
                               selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
-                                ? "bg-white text-[var(--brand)]"
-                                : "bg-[var(--blue-50)] text-[var(--brand)]"
+                                ? "bg-white text-[var(--trainer)]"
+                                : "bg-[var(--trainer)] text-white"
                             }`}>T</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
                               selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
@@ -463,8 +465,8 @@ export function StartersWindow({
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
                               selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
-                                ? "bg-white text-[var(--brand)]"
-                                : "bg-[var(--blue-50)] text-[var(--brand)]"
+                                ? "bg-white text-[var(--sire)]"
+                                : "bg-[var(--sire)] text-white"
                             }`}>S</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
                               selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
@@ -494,8 +496,8 @@ export function StartersWindow({
                           >
                             <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
                               selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
-                                ? "bg-white text-[var(--brand)]"
-                                : "bg-[var(--blue-50)] text-[var(--brand)]"
+                                ? "bg-white text-[var(--sire)]"
+                                : "bg-[var(--sire)] text-white"
                             }`}>S</span>
                             <span className={`text-[12px] leading-[18px] font-semibold truncate ${
                               selectedConnection?.role === "sire" && sire2 === selectedConnection?.name

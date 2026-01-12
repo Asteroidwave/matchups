@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Connection, Starter, PastPerformanceEntry } from "@/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { getConnectionHistory } from "@/lib/parseExcel";
 
@@ -11,6 +11,181 @@ interface ConnectionModalProps {
   connection: Connection | null;
   isOpen: boolean;
   onClose: () => void;
+}
+
+// Past Performance Tab Component with collapsible rows (MM Matchups style)
+function PastPerformanceTab({
+  pastPerformance,
+  isLoadingPP,
+  trackFullName,
+  getPlaceColor,
+  getPostBadge,
+}: {
+  pastPerformance: PastPerformanceEntry[];
+  isLoadingPP: boolean;
+  trackFullName: Record<string, string>;
+  getPlaceColor: (place?: number) => string;
+  getPostBadge: (post?: number) => string;
+}) {
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
+  const toggleRow = (key: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+  
+  if (isLoadingPP) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand)]" />
+        <span className="ml-2 text-[var(--text-secondary)]">Loading past performance...</span>
+      </div>
+    );
+  }
+  
+  if (pastPerformance.length === 0) {
+    return (
+      <div className="text-center py-12 text-[var(--text-secondary)]">
+        No past performance data available
+      </div>
+    );
+  }
+  
+  // Group by date + track
+  const grouped = new Map<string, PastPerformanceEntry[]>();
+  pastPerformance.forEach((entry) => {
+    const key = `${entry.date}-${entry.track}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, []);
+    }
+    grouped.get(key)!.push(entry);
+  });
+  
+  const entries = Array.from(grouped.entries());
+  
+  return (
+    <div className="overflow-x-auto">
+      {/* Table Header - MM Matchups style */}
+      <div className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10 px-5 py-2">
+        <div className="grid grid-cols-12 gap-2 text-[12px] font-medium text-[var(--text-tertiary)]">
+          <div className="col-span-4">Race Day</div>
+          <div className="col-span-2 text-right">Salary</div>
+          <div className="col-span-2 text-right">Appearances</div>
+          <div className="col-span-2 text-right">AVPA</div>
+          <div className="col-span-2 text-right">Score</div>
+        </div>
+      </div>
+      
+      {/* Collapsible rows */}
+      <div className="divide-y divide-[var(--content-15)]">
+        {entries.map(([key, races]) => {
+          const [date, track] = key.split('-');
+          const trackName = trackFullName[track] || track;
+          const formattedDate = new Date(date).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          });
+          
+          // Calculate summary stats for this day
+          const totalSalary = races.reduce((sum, r) => sum + (r.salary || 0), 0);
+          const appearances = races.length;
+          const avgAVPA = races.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
+          const totalScore = races.reduce((sum, r) => sum + (r.totalPoints || 0), 0);
+          
+          const isExpanded = expandedRows.has(key);
+          
+          return (
+            <div key={key}>
+              {/* Summary Row (Clickable) */}
+              <button
+                onClick={() => toggleRow(key)}
+                className="w-full px-5 py-3 hover:bg-[var(--surface-2)] transition-colors"
+              >
+                <div className="grid grid-cols-12 gap-2 items-center text-[14px]">
+                  <div className="col-span-4 flex items-center gap-2">
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
+                    )}
+                    <span className="font-medium text-[var(--text-primary)]">{formattedDate}</span>
+                    <span className="text-[var(--text-secondary)]">{track}</span>
+                  </div>
+                  <div className="col-span-2 text-right font-medium text-[var(--text-primary)]">
+                    ${totalSalary.toLocaleString()}
+                  </div>
+                  <div className="col-span-2 text-right text-[var(--text-primary)]">
+                    {appearances}
+                  </div>
+                  <div className="col-span-2 text-right text-[var(--text-primary)]">
+                    {avgAVPA.toFixed(2)}
+                  </div>
+                  <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                    {totalScore.toFixed(2)}
+                  </div>
+                </div>
+              </button>
+              
+              {/* Expanded Detail Rows */}
+              {isExpanded && (
+                <div className="bg-[var(--surface-2)] border-t border-[var(--content-15)]">
+                  {/* Detail Header */}
+                  <div className="px-5 py-2 grid grid-cols-12 gap-2 text-[11px] font-medium text-[var(--text-tertiary)] border-b border-[var(--content-15)]">
+                    <div className="col-span-1">Race</div>
+                    <div className="col-span-5">Horse</div>
+                    <div className="col-span-3 text-right">Position</div>
+                    <div className="col-span-3 text-right">Points</div>
+                  </div>
+                  
+                  {/* Detail Rows */}
+                  {races.map((entry, idx) => (
+                    <div
+                      key={`${key}-${idx}`}
+                      className="px-5 py-2 grid grid-cols-12 gap-2 items-center text-[13px] border-b border-[var(--content-15)] last:border-b-0"
+                    >
+                      <div className="col-span-1">
+                        <span className="font-medium text-[var(--text-primary)]">{entry.race}</span>
+                      </div>
+                      <div className="col-span-5 flex items-center gap-2">
+                        {/* Post position badge */}
+                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[11px] font-semibold ${getPostBadge(entry.postPosition || entry.race)}`}>
+                          {entry.postPosition || idx + 1}
+                        </span>
+                        {/* M/L Odds */}
+                        <span className="text-[var(--text-secondary)] text-[12px]">
+                          {entry.finalOdds ? `${entry.finalOdds.toFixed(0)}/1` : "—"}
+                        </span>
+                        {/* Horse Name */}
+                        <span className="font-medium text-[var(--text-primary)] truncate">
+                          {entry.horse}
+                        </span>
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-[11px] font-semibold ${getPlaceColor(entry.finish)}`}>
+                          {entry.finish === 1 ? "1st" : entry.finish === 2 ? "2nd" : entry.finish === 3 ? "3rd" : entry.finish === 0 ? "—" : `${entry.finish}th`}
+                        </span>
+                      </div>
+                      <div className="col-span-3 text-right font-medium text-[var(--text-primary)]">
+                        {entry.totalPoints?.toFixed(2) || "0.00"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const trackColors: Record<string, { bg: string; border: string }> = {
@@ -239,15 +414,15 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
           {activeTab === "connected" && (
             <div className="overflow-x-auto">
               <table className="w-full">
-                {/* Table Header - Sticky (matching Figma table-header) */}
-                <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
+                {/* Table Header - Sticky */}
+                <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
                   <tr>
-                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-0 pt-2 text-left">
+                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-2 pt-2 text-left">
                       <div className="flex items-center">
-                        <div className="flex flex-col gap-2 w-[140px]">
+                        <div className="flex flex-col gap-2 w-[130px]">
                           <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
                         </div>
-                        <div className="flex flex-col flex-1 ml-[144px]">
+                        <div className="flex flex-col flex-1 ml-4">
                           <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Connections</p>
                         </div>
                       </div>
@@ -278,8 +453,8 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Horse Column - div.top style (140px width matching Figma) */}
-                              <td className="w-[140px] py-3 pl-5 pr-0 align-top">
+                              {/* Horse Column - narrower for more connection space */}
+                              <td className="w-[130px] py-3 pl-5 pr-0 align-top">
                                 <div className="flex flex-col gap-2">
                                   {/* PP and Odds */}
                                   <div className="flex items-center gap-2">
@@ -300,8 +475,8 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                   </div>
                                 </div>
                               </td>
-                              {/* Connections Column - Frame style with 144px gap from horse column */}
-                              <td className="flex-1 pl-[144px] align-top">
+                              {/* Connections Column - Wider grid */}
+                              <td className="flex-1 pl-4 pr-2 align-top">
                                 <div className="flex flex-col">
                                   {/* Top row: Jockey and Trainer */}
                                   <div className="flex border-b border-[var(--content-15)]">
@@ -355,121 +530,13 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
           )}
           
           {activeTab === "past" && (
-            <div className="overflow-x-auto">
-              {isLoadingPP ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[var(--brand)]" />
-                  <span className="ml-2 text-[var(--text-secondary)]">Loading past performance...</span>
-                </div>
-              ) : pastPerformance.length === 0 ? (
-                <div className="text-center py-12 text-[var(--text-secondary)]">
-                  No past performance data available
-                </div>
-              ) : (
-                <table className="w-full">
-                  {/* Table Header - Same style as Connected Horses */}
-                  <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
-                    <tr>
-                      <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-0 pt-2 text-left">
-                        <div className="flex items-center">
-                          <div className="flex flex-col gap-2 w-[140px]">
-                            <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Race Info</p>
-                          </div>
-                          <div className="flex flex-col flex-1 ml-[144px]">
-                            <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Performance</p>
-                          </div>
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Group by date for separators
-                      const grouped = new Map<string, PastPerformanceEntry[]>();
-                      
-                      pastPerformance.forEach((entry) => {
-                        const key = `${entry.date}-${entry.track}`;
-                        if (!grouped.has(key)) {
-                          grouped.set(key, []);
-                        }
-                        grouped.get(key)!.push(entry);
-                      });
-                      
-                      const result: JSX.Element[] = [];
-                      const entries = Array.from(grouped.entries());
-                      
-                      entries.forEach(([key, races], groupIdx) => {
-                        const [date, track] = key.split('-');
-                        const trackName = trackFullName[track] || track;
-                        const formattedDate = new Date(date).toLocaleDateString('en-US', {
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric'
-                        });
-                        
-                        // Add track header (gray band - same as Connected Horses)
-                        result.push(
-                          <tr key={`header-${key}`} className="bg-[var(--content-15)]">
-                            <td colSpan={2} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                              {formattedDate}, {trackName}
-                            </td>
-                          </tr>
-                        );
-                        
-                        // Add race rows - same style as Connected Horses
-                        races.forEach((entry, idx) => {
-                          result.push(
-                            <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Left Column - Race Info (same width as Horse column) */}
-                              <td className="w-[140px] py-3 pl-5 pr-0 align-top">
-                                <div className="flex flex-col gap-2">
-                                  {/* Race number and odds */}
-                                  <div className="flex items-center gap-2">
-                                    <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] ${getPostBadge(entry.race)}`}>
-                                      R{entry.race}
-                                    </span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                      {entry.finalOdds ? `${entry.finalOdds.toFixed(1)}/1` : "—"}
-                                    </span>
-                                  </div>
-                                  {/* Horse Name */}
-                                  <div>
-                                    <div className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                      {entry.horse}
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                              {/* Right Column - Performance */}
-                              <td className="flex-1 pl-[144px] align-top">
-                                <div className="flex">
-                                  {/* Finish Position */}
-                                  <div className="flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5">
-                                    <span className="text-[12px] font-medium text-[var(--text-tertiary)]">Finish:</span>
-                                    <span className={`px-2 py-0.5 rounded text-[12px] font-semibold ${getPlaceColor(entry.finish)}`}>
-                                      {entry.finish === 0 ? "—" : entry.finish}
-                                    </span>
-                                  </div>
-                                  {/* Points */}
-                                  <div className="flex-1 px-3 py-2 flex items-center gap-1.5">
-                                    <span className="text-[12px] font-medium text-[var(--text-tertiary)]">Points:</span>
-                                    <span className="text-[14px] font-semibold leading-[20px] text-[var(--text-primary)]">
-                                      {entry.totalPoints?.toFixed(1) || "0.0"}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        });
-                      });
-                      
-                      return result;
-                    })()}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <PastPerformanceTab
+              pastPerformance={pastPerformance}
+              isLoadingPP={isLoadingPP}
+              trackFullName={trackFullName}
+              getPlaceColor={getPlaceColor}
+              getPostBadge={getPostBadge}
+            />
           )}
         </div>
       </DialogContent>

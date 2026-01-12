@@ -10,18 +10,39 @@ interface ConnectionCardProps {
 }
 
 const trackColors: Record<string, { bg: string; text: string }> = {
-  BAQ: { bg: "bg-blue-500", text: "text-blue-500" },
-  GP: { bg: "bg-green-500", text: "text-green-500" },
-  KEE: { bg: "bg-purple-500", text: "text-purple-500" },
-  SA: { bg: "bg-red-500", text: "text-red-500" },
+  AQU: { bg: "bg-blue-600", text: "text-blue-600" },
+  DMR: { bg: "bg-cyan-600", text: "text-cyan-600" },
+  GP: { bg: "bg-green-600", text: "text-green-600" },
+  LRL: { bg: "bg-pink-600", text: "text-pink-600" },
+  MVR: { bg: "bg-amber-600", text: "text-amber-600" },
+  PEN: { bg: "bg-violet-600", text: "text-violet-600" },
+  PRX: { bg: "bg-rose-600", text: "text-rose-600" },
+  SA: { bg: "bg-red-600", text: "text-red-600" },
+  BAQ: { bg: "bg-blue-600", text: "text-blue-600" },
+  KEE: { bg: "bg-purple-600", text: "text-purple-600" },
+};
+
+// Role colors - Beat the House style for better dark mode support
+const roleColors = {
+  jockey: {
+    bg: "bg-[var(--jockey)]/20",
+    text: "text-[var(--jockey)]",
+    badge: "bg-[var(--jockey)]"
+  },
+  trainer: {
+    bg: "bg-[var(--trainer)]/20",
+    text: "text-[var(--trainer)]",
+    badge: "bg-[var(--trainer)]"
+  },
+  sire: {
+    bg: "bg-[var(--sire)]/20",
+    text: "text-[var(--sire)]",
+    badge: "bg-[var(--sire)]"
+  },
 };
 
 export function ConnectionCard({ connection, compact = false, onClick, onNameClick, isHighlighted = false, showSalary = true }: ConnectionCardProps) {
-  const roleColor = {
-    jockey: "bg-blue-100 text-blue-800",
-    trainer: "bg-green-100 text-green-800",
-    sire: "bg-amber-100 text-amber-800",
-  }[connection.role];
+  const roleColor = roleColors[connection.role];
   
   // Get primary track (first one)
   const primaryTrack = connection.trackSet[0] || "";
@@ -55,13 +76,13 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
               {connection.name}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${roleColor}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${roleColor.badge}`}>
                 {connection.role.toUpperCase()}
               </span>
               {connection.trackSet.map((track) => {
-                const trackColorForTrack = trackColors[track] || { bg: "bg-gray-500", text: "text-gray-500" };
+                const trackColorForTrack = trackColors[track] || { bg: "bg-gray-600", text: "text-gray-600" };
                 return (
-                  <span key={track} className={`px-1 py-0.5 rounded text-[8px] font-bold text-white ${trackColorForTrack.bg}`}>
+                  <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${trackColorForTrack.bg}`}>
                     {track}
                   </span>
                 );

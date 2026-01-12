@@ -19,6 +19,18 @@
   --chip-outline: #DFE0E2;
   --surface-1: #FFFFFF;
   --surface-2: #F8F9FA;
+  --surface-elevated: #f1f5f9;
+  --surface-hover: #e2e8f0;
+  
+  /* Connection colors */
+  --jockey: #2563eb;
+  --trainer: #16a34a;
+  --sire: #d97706;
+  
+  /* Status colors */
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
   
   /* Calendar colors */
   --calendar-race-day: #3B82F6;
@@ -26,27 +38,39 @@
   --calendar-hover: #E6F0FF;
 }
 
-/* Dark mode custom tokens */
+/* Dark mode - Beat the House sophisticated racing aesthetic */
 .dark {
-  --text-primary: #F8F9FA;
-  --text-secondary: #A0AEC0;
-  --text-tertiary: #718096;
-  --blue-50: #1E3A5F;
-  --brand: #60A5FA;
-  --brand-light: #1E3A5F;
-  --content-15: #2D3748;
-  --content-16: #374151;
-  --content-9: #A0AEC0;
-  --btn-link: #60A5FA;
-  --btn-default: #F8F9FA;
-  --surface-3: #2D3748;
-  --chip-outline: #4A5568;
-  --surface-1: #111827;
-  --surface-2: #1F2937;
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --blue-50: #1a222d;
+  --brand: #3b82f6;
+  --brand-light: #1a222d;
+  --content-15: #2a3544;
+  --content-16: #232d3b;
+  --content-9: #94a3b8;
+  --btn-link: #3b82f6;
+  --btn-default: #3b82f6;
+  --surface-3: #232d3b;
+  --chip-outline: #2a3544;
+  --surface-1: #0a0e14;
+  --surface-2: #121820;
+  --surface-elevated: #1a222d;
+  --surface-hover: #232d3b;
+  
+  /* Connection colors */
+  --jockey: #3b82f6;
+  --trainer: #22c55e;
+  --sire: #f59e0b;
+  
+  /* Status colors */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
   
   --calendar-race-day: #3B82F6;
   --calendar-selected: #EF4444;
-  --calendar-hover: #1E3A5F;
+  --calendar-hover: #1a222d;
 }
 
 html {

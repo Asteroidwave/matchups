@@ -67,7 +67,11 @@ export function SetCard({
         )}
         <button
           type="button"
-          className={`px-3 py-1 rounded-full text-sm font-semibold ${isSelected ? "bg-[var(--btn-default)] text-white" : "bg-[var(--blue-50)] text-[var(--brand)]"}`}
+          className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${
+            isSelected 
+              ? "bg-[var(--brand)] text-white" 
+              : "bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] hover:bg-[var(--brand)] hover:text-white hover:border-[var(--brand)]"
+          }`}
           onClick={(e) => {
             e.stopPropagation();
             onSelect();

@@ -548,6 +548,8 @@ export function generate2v1v1Matchups(
 
 /**
  * Generate all matchups with a mix of types
+ * Targets 20 matchups total with a good mix of 2-way and 3-way matchups
+ * Each connection can only appear ONCE across all matchups served
  */
 export function generateAllMatchups(
   connections: Connection[],
@@ -557,6 +559,7 @@ export function generateAllMatchups(
     max1v1v1?: number;
     max2v1v1?: number;
     tolerance?: number;
+    totalTarget?: number;
   } = {}
 ): { 
   matchups1v1: Matchup[]; 
@@ -566,46 +569,84 @@ export function generateAllMatchups(
   all: Matchup[];
 } {
   const { 
-    max1v1 = 30, 
-    max2v1 = 10,
-    max1v1v1 = 10, 
-    max2v1v1 = 5,
-    tolerance = 0.15 
+    max1v1 = 8, 
+    max2v1 = 4,
+    max1v1v1 = 6,
+    max2v1v1 = 2,
+    tolerance = 0.2,
+    totalTarget = 20 
   } = options;
 
-  // Shuffle connections
+  // Shuffle connections for variety each time
   const shuffled = [...connections].sort(() => Math.random() - 0.5);
   
-  // Generate different matchup types
-  const matchups1v1 = generate1v1Matchups(shuffled, tolerance, max1v1);
+  // Track ALL used connections globally to ensure each appears only ONCE
+  const globalUsedConnections = new Set<string>();
   
-  // Get unused connections for other types
-  const used1v1 = new Set(matchups1v1.flatMap(m => [...m.setA.connections, ...m.setB.connections].map(c => c.id)));
-  const remaining1 = shuffled.filter(c => !used1v1.has(c.id));
+  // Generate 3-way matchups first (they're more interesting and harder to fill)
+  const remaining3Way = shuffled.filter(c => !globalUsedConnections.has(c.id));
+  const matchups1v1v1 = generate1v1v1Matchups(remaining3Way, tolerance, max1v1v1);
   
-  const matchups2v1 = generate2v1Matchups(remaining1, tolerance, max2v1);
+  // Mark all 3-way connections as used
+  matchups1v1v1.forEach(m => {
+    m.setA.connections.forEach(c => globalUsedConnections.add(c.id));
+    m.setB.connections.forEach(c => globalUsedConnections.add(c.id));
+    m.setC?.connections.forEach(c => globalUsedConnections.add(c.id));
+  });
   
-  const used2v1 = new Set(matchups2v1.flatMap(m => [...m.setA.connections, ...m.setB.connections].map(c => c.id)));
-  const remaining2 = remaining1.filter(c => !used2v1.has(c.id));
+  // Generate 2v1v1 matchups
+  const remaining2v1v1 = shuffled.filter(c => !globalUsedConnections.has(c.id));
+  const matchups2v1v1 = generate2v1v1Matchups(remaining2v1v1, tolerance, max2v1v1);
   
-  const matchups1v1v1 = generate1v1v1Matchups(remaining2, tolerance, max1v1v1);
+  // Mark used
+  matchups2v1v1.forEach(m => {
+    m.setA.connections.forEach(c => globalUsedConnections.add(c.id));
+    m.setB.connections.forEach(c => globalUsedConnections.add(c.id));
+    m.setC?.connections.forEach(c => globalUsedConnections.add(c.id));
+  });
   
-  const used1v1v1 = new Set(matchups1v1v1.flatMap(m => 
-    [...m.setA.connections, ...m.setB.connections, ...(m.setC?.connections || [])].map(c => c.id)
-  ));
-  const remaining3 = remaining2.filter(c => !used1v1v1.has(c.id));
+  // Generate 1v1 matchups with remaining connections
+  const remaining1v1 = shuffled.filter(c => !globalUsedConnections.has(c.id));
+  const matchups1v1 = generate1v1Matchups(remaining1v1, tolerance, max1v1);
   
-  const matchups2v1v1 = generate2v1v1Matchups(remaining3, tolerance, max2v1v1);
+  // Mark used
+  matchups1v1.forEach(m => {
+    m.setA.connections.forEach(c => globalUsedConnections.add(c.id));
+    m.setB.connections.forEach(c => globalUsedConnections.add(c.id));
+  });
+  
+  // Generate 2v1 matchups with remaining connections
+  const remaining2v1 = shuffled.filter(c => !globalUsedConnections.has(c.id));
+  const matchups2v1 = generate2v1Matchups(remaining2v1, tolerance, max2v1);
 
-  // Combine all matchups
-  const all = [
-    ...matchups1v1,
-    ...matchups2v1,
-    ...matchups1v1v1,
-    ...matchups2v1v1,
-  ];
+  // Combine all matchups - mix them up for variety
+  const all3Way = [...matchups1v1v1, ...matchups2v1v1];
+  const all2Way = [...matchups1v1, ...matchups2v1];
+  
+  // Interleave 3-way and 2-way matchups for better user experience
+  const combined: Matchup[] = [];
+  let idx2 = 0, idx3 = 0;
+  
+  while (combined.length < totalTarget && (idx2 < all2Way.length || idx3 < all3Way.length)) {
+    // Add 3-way matchup
+    if (idx3 < all3Way.length) {
+      combined.push(all3Way[idx3++]);
+    }
+    // Add 2-way matchup
+    if (idx2 < all2Way.length && combined.length < totalTarget) {
+      combined.push(all2Way[idx2++]);
+    }
+  }
+  
+  // If we still need more matchups, add remaining
+  while (combined.length < totalTarget && idx2 < all2Way.length) {
+    combined.push(all2Way[idx2++]);
+  }
+  while (combined.length < totalTarget && idx3 < all3Way.length) {
+    combined.push(all3Way[idx3++]);
+  }
 
-  return { matchups1v1, matchups2v1, matchups1v1v1, matchups2v1v1, all };
+  return { matchups1v1, matchups2v1, matchups1v1v1, matchups2v1v1, all: combined };
 }
 
 /**

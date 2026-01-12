@@ -184,19 +184,20 @@ export default function MatchupsPage() {
     router.push("/results");
   };
   
-  // Industry-standard multiplier schedule (DraftKings/Underdog style)
-  // Standard: All picks must win
-  // Flex: Lower payout if all win, but allows one miss (with reduced payout)
+  // Multiplier schedule with 20% house take
+  // True odds: 2^n for n picks at 50/50 odds
+  // After 20% house take: true_odds * 0.8 = payout multiplier
+  // Standard: All picks must win | Flex: Reduced payout with one miss allowed
   const multiplierSchedule: Record<number, { standard: number; flexAllWin: number; flexOneMiss: number }> = {
-    2: { standard: 3.5, flexAllWin: 2.1, flexOneMiss: 1.0 },
-    3: { standard: 6.5, flexAllWin: 3.9, flexOneMiss: 2.0 },
-    4: { standard: 13.0, flexAllWin: 7.8, flexOneMiss: 3.5 },
-    5: { standard: 25.0, flexAllWin: 15.0, flexOneMiss: 6.5 },
-    6: { standard: 50.0, flexAllWin: 30.0, flexOneMiss: 13.0 },
-    7: { standard: 100.0, flexAllWin: 60.0, flexOneMiss: 25.0 },
-    8: { standard: 200.0, flexAllWin: 120.0, flexOneMiss: 50.0 },
-    9: { standard: 400.0, flexAllWin: 240.0, flexOneMiss: 100.0 },
-    10: { standard: 800.0, flexAllWin: 480.0, flexOneMiss: 200.0 },
+    2: { standard: 3, flexAllWin: 2, flexOneMiss: 1 },      // True: 4x → 3x after house
+    3: { standard: 6, flexAllWin: 4, flexOneMiss: 2 },      // True: 8x → 6x after house
+    4: { standard: 10, flexAllWin: 6, flexOneMiss: 3 },     // True: 16x → 12x → 10x
+    5: { standard: 20, flexAllWin: 12, flexOneMiss: 5 },    // True: 32x → 25x → 20x
+    6: { standard: 40, flexAllWin: 25, flexOneMiss: 10 },   // True: 64x → 50x → 40x
+    7: { standard: 80, flexAllWin: 50, flexOneMiss: 20 },   // True: 128x → 100x → 80x
+    8: { standard: 150, flexAllWin: 100, flexOneMiss: 40 }, // True: 256x → 200x → 150x
+    9: { standard: 300, flexAllWin: 200, flexOneMiss: 80 }, // True: 512x → 400x → 300x
+    10: { standard: 600, flexAllWin: 400, flexOneMiss: 150 }, // True: 1024x → 800x → 600x
   };
   const selectedCount = Object.keys(selections).length || 0;
   const scheduled = multiplierSchedule[selectedCount as keyof typeof multiplierSchedule];
@@ -204,7 +205,7 @@ export default function MatchupsPage() {
     ? (isFlex ? scheduled.flexAllWin : scheduled.standard)
     : 0;
   const flexOneMissMultiplier = scheduled?.flexOneMiss || 0;
-  const multiplierDisplay = computedMultiplier ? `${computedMultiplier.toFixed(2)}x` : "—";
+  const multiplierDisplay = computedMultiplier ? `${computedMultiplier}x` : "—";
   const potentialWin = entryAmount && Number.parseFloat(entryAmount) > 0
     ? (Number.parseFloat(entryAmount) * (computedMultiplier || 0)).toFixed(2)
     : "0.00";
@@ -266,6 +267,8 @@ export default function MatchupsPage() {
             onConnectionBoxClick={handleConnectionBoxClick}
             matchups={matchups}
             onConnectionClickToMatchup={scrollToMatchupForConnection}
+            selectedTracks={selectedTracks}
+            selectedDate={selectedDate}
           />
         </div>
         
@@ -288,7 +291,7 @@ export default function MatchupsPage() {
                   onClick={() => regenerateMatchups({ tolerance })}
                   variant="outline"
                   size="default"
-                  className="px-6 py-3 text-base font-semibold hover:bg-[var(--btn-default)] hover:text-white"
+                  className="px-6 py-3 text-base font-semibold bg-[var(--surface-2)] border-[var(--content-15)] text-[var(--text-primary)] hover:bg-[var(--brand)] hover:text-white hover:border-[var(--brand)] transition-colors"
                 >
                   Reload
                 </Button>
@@ -434,7 +437,7 @@ export default function MatchupsPage() {
                           </div>
                         </div>
                         <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} Correct</div>
-                        <div className="text-xs font-bold text-green-600">{scheduled?.standard.toFixed(2)}x</div>
+                        <div className="text-xs font-bold text-green-600">{scheduled?.standard}x</div>
                       </button>
                       
                       {/* Flex Card */}
@@ -460,8 +463,8 @@ export default function MatchupsPage() {
                             {isFlex && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </div>
                         </div>
-                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} → {scheduled?.flexAllWin.toFixed(2)}x</div>
-                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount - 1} → {scheduled?.flexOneMiss.toFixed(2)}x</div>
+                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} → {scheduled?.flexAllWin}x</div>
+                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount - 1} → {scheduled?.flexOneMiss}x</div>
                       </button>
                     </div>
                   </div>
