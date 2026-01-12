@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RoundPick, Connection, Matchup } from "@/types";
-import { X, Settings, Info, Calendar } from "lucide-react";
+import { X, Settings, Info, Calendar, ChevronDown } from "lucide-react";
 
 export default function MatchupsPage() {
   const router = useRouter();
@@ -45,6 +45,17 @@ export default function MatchupsPage() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<"all" | "jockey" | "trainer" | "sire" | "mixed">("all");
   const [sortBy, setSortBy] = useState<"none" | "salary-high" | "salary-low" | "apps-high" | "apps-low" | "avpa-high" | "avpa-low">("none");
+  const [isSortOpen, setIsSortOpen] = useState(false);
+
+  const sortLabels: Record<typeof sortBy, string> = {
+    "none": "None",
+    "salary-high": "Salary (High)",
+    "salary-low": "Salary (Low)",
+    "apps-high": "Apps (High)",
+    "apps-low": "Apps (Low)",
+    "avpa-high": "AVPA (High)",
+    "avpa-low": "AVPA (Low)",
+  };
   
   // Filter and sort matchups
   const filteredAndSortedMatchups = React.useMemo(() => {
@@ -53,20 +64,15 @@ export default function MatchupsPage() {
     // Apply role filter
     if (roleFilter !== "all") {
       result = result.filter(matchup => {
-        const allConnections = [
-          ...matchup.setA.connections,
-          ...matchup.setB.connections,
-          ...(matchup.setC?.connections || [])
-        ];
+        const sets = [matchup.setA.connections, matchup.setB.connections, ...(matchup.setC ? [matchup.setC.connections] : [])];
+        const roles = new Set(sets.flat().map(c => c.role));
         
         if (roleFilter === "mixed") {
-          // Mixed = matchups with connections from multiple roles
-          const roles = new Set(allConnections.map(c => c.role));
           return roles.size > 1;
         }
         
-        // Single role filter
-        return allConnections.some(c => c.role === roleFilter);
+        // For specific role, require every connection in every set to be that role
+        return sets.every(group => group.length > 0 && group.every(c => c.role === roleFilter));
       });
     }
     
@@ -379,24 +385,35 @@ export default function MatchupsPage() {
               </div>
               
               {/* Sort Dropdown */}
-              <div className="flex items-center gap-2">
+              <div className="relative flex items-center gap-2">
                 <span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="px-2 py-1.5 rounded-md text-[13px] bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] focus:outline-none focus:border-[var(--brand)]"
+                <button
+                  onClick={() => setIsSortOpen((v) => !v)}
+                  className="px-3 py-1.5 rounded-md text-[13px] bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] hover:border-[var(--brand)] flex items-center gap-1"
                 >
-                  <option value="none">None</option>
-                  <option value="salary-high">Salary (High)</option>
-                  <option value="salary-low">Salary (Low)</option>
-                  <option value="apps-high">Apps (High)</option>
-                  <option value="apps-low">Apps (Low)</option>
-                  <option value="avpa-high">AVPA (High)</option>
-                  <option value="avpa-low">AVPA (Low)</option>
-                </select>
+                  {sortLabels[sortBy]} <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
+                </button>
                 <span className="text-[12px] text-[var(--text-tertiary)]">
                   Matchups {filteredAndSortedMatchups.length}
                 </span>
+                {isSortOpen && (
+                  <div className="absolute top-10 right-0 w-48 bg-[var(--surface-1)] border border-[var(--content-15)] rounded-md shadow-lg z-10">
+                    {Object.entries(sortLabels).map(([key, label]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setSortBy(key as typeof sortBy);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--surface-2)] ${
+                          sortBy === key ? "text-[var(--brand)] font-semibold" : "text-[var(--text-primary)]"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           
@@ -457,7 +474,7 @@ export default function MatchupsPage() {
                   selectedPicks.map((pick) => (
                     <div
                       key={pick!.matchupId}
-                      className="bg-[var(--surface-1)] rounded-lg p-2 border border-[var(--chip-outline)] relative hover:shadow-sm transition-shadow"
+                      className="bg-[var(--surface-2)] rounded-lg p-2 border border-[var(--brand)]/40 shadow-sm relative"
                     >
                       <button
                         onClick={() => removePick(pick!.matchupId)}
@@ -569,8 +586,8 @@ export default function MatchupsPage() {
                   </div>
                 )}
                 
-                <div className="mb-2 min-h-[44px]">
-                  {entryAmount && Number.parseFloat(entryAmount) > 0 ? (
+                {entryAmount && Number.parseFloat(entryAmount) > 0 && (
+                  <div className="mb-2">
                     <div className="p-2 bg-[var(--blue-50)] rounded-md">
                       <div className="flex items-center justify-between">
                         <div>
@@ -583,10 +600,8 @@ export default function MatchupsPage() {
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="h-[44px]" />
-                  )}
-                </div>
+                  </div>
+                )}
           </div>
           
           {/* Play Button - Always Visible at Bottom */}

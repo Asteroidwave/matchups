@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Connection, Starter } from "@/types";
 import { Card } from "@/components/ui/card";
 
@@ -16,16 +16,16 @@ interface StartersWindowProps {
 }
 
 const trackColors: Record<string, { bg: string; border: string; text: string }> = {
-  BAQ: { bg: "bg-blue-500/20", border: "border-blue-500", text: "text-blue-600 dark:text-blue-400" },
-  GP: { bg: "bg-green-500/20", border: "border-green-500", text: "text-green-600 dark:text-green-400" },
-  KEE: { bg: "bg-purple-500/20", border: "border-purple-500", text: "text-purple-600 dark:text-purple-400" },
-  SA: { bg: "bg-red-500/20", border: "border-red-500", text: "text-red-600 dark:text-red-400" },
-  AQU: { bg: "bg-blue-500/20", border: "border-blue-500", text: "text-blue-600 dark:text-blue-400" },
-  DMR: { bg: "bg-cyan-500/20", border: "border-cyan-500", text: "text-cyan-600 dark:text-cyan-400" },
-  LRL: { bg: "bg-pink-500/20", border: "border-pink-500", text: "text-pink-600 dark:text-pink-400" },
-  MVR: { bg: "bg-amber-500/20", border: "border-amber-500", text: "text-amber-600 dark:text-amber-400" },
-  PEN: { bg: "bg-violet-500/20", border: "border-violet-500", text: "text-violet-600 dark:text-violet-400" },
-  PRX: { bg: "bg-rose-500/20", border: "border-rose-500", text: "text-rose-600 dark:text-rose-400" },
+  BAQ: { bg: "bg-blue-400/20", border: "border-blue-300", text: "text-blue-500 dark:text-blue-300" },
+  AQU: { bg: "bg-sky-400/20", border: "border-sky-300", text: "text-sky-500 dark:text-sky-300" },
+  GP: { bg: "bg-emerald-400/20", border: "border-emerald-300", text: "text-emerald-500 dark:text-emerald-300" },
+  SA: { bg: "bg-rose-400/20", border: "border-rose-300", text: "text-rose-500 dark:text-rose-300" },
+  DMR: { bg: "bg-cyan-400/20", border: "border-cyan-300", text: "text-cyan-500 dark:text-cyan-300" },
+  LRL: { bg: "bg-pink-400/20", border: "border-pink-300", text: "text-pink-500 dark:text-pink-300" },
+  MVR: { bg: "bg-amber-400/20", border: "border-amber-300", text: "text-amber-500 dark:text-amber-300" },
+  PEN: { bg: "bg-violet-400/20", border: "border-violet-300", text: "text-violet-500 dark:text-violet-300" },
+  PRX: { bg: "bg-indigo-400/20", border: "border-indigo-300", text: "text-indigo-500 dark:text-indigo-300" },
+  KEE: { bg: "bg-purple-400/20", border: "border-purple-300", text: "text-purple-500 dark:text-purple-300" },
 };
 
 export function StartersWindow({
@@ -43,6 +43,13 @@ export function StartersWindow({
   
   // Use selectedTracks from calendar picker if available, otherwise show ALL
   const tracksToShow = selectedTracks.length > 0 ? selectedTracks : ["ALL"];
+
+  // Reset track filter if selection changes and active filter not present
+  useEffect(() => {
+    if (activeTrackFilter !== "ALL" && !selectedTracks.includes(activeTrackFilter)) {
+      setActiveTrackFilter("ALL");
+    }
+  }, [selectedTracks, activeTrackFilter]);
   
   // Get all connection IDs that are in matchups (for "Connected Horses" filter)
   const matchupConnectionIds = useMemo(() => {
@@ -149,11 +156,11 @@ export function StartersWindow({
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
       
-      // Filter by track - if selectedTracks from calendar, filter by those, else use active filter
-      if (selectedTracks.length > 0) {
+      // Filter by track - if user clicked a specific track chip, filter to that; otherwise allow all selected tracks
+      if (activeTrackFilter !== "ALL") {
+        if (starter.track !== activeTrackFilter) continue;
+      } else if (selectedTracks.length > 0) {
         if (!selectedTracks.includes(starter.track)) continue;
-      } else if (activeTrackFilter !== "ALL" && starter.track !== activeTrackFilter) {
-        continue;
       }
       
       // Filter by selected connection if filtering (works in both horses and connected view)
@@ -261,19 +268,35 @@ export function StartersWindow({
             Connected Horses
           </button>
           
-          {/* Show selected tracks from calendar picker (if any) */}
+          {/* Track filter chips (for selected tracks) */}
           {selectedTracks.length > 0 && (
             <>
               <div className="w-px h-4 bg-[var(--content-15)] mx-1"></div>
+              <button
+                onClick={() => setActiveTrackFilter("ALL")}
+                className={`px-3 py-1.5 rounded text-[13px] font-medium whitespace-nowrap border ${
+                  activeTrackFilter === "ALL"
+                    ? "bg-[var(--brand)] text-white border-[var(--brand)]"
+                    : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)]"
+                }`}
+              >
+                All
+              </button>
               {selectedTracks.map((track) => {
                 const color = trackColors[track] || { bg: "bg-gray-500/20", border: "border-gray-500", text: "text-gray-600 dark:text-gray-400" };
+                const isActive = activeTrackFilter === track;
                 return (
-                  <span
+                  <button
                     key={track}
-                    className={`px-3 py-1.5 rounded text-[13px] font-medium whitespace-nowrap ${color.bg} ${color.text} border ${color.border}`}
+                    onClick={() => setActiveTrackFilter(isActive ? "ALL" : track)}
+                    className={`px-3 py-1.5 rounded text-[13px] font-medium whitespace-nowrap border transition-colors ${
+                      isActive
+                        ? `${color.bg.replace('/20','/40')} ${color.text} border-2 ${color.border}`
+                        : "bg-[var(--surface-2)] text-[var(--text-primary)] border-[var(--content-15)] hover:bg-[var(--surface-3)]"
+                    }`}
                   >
                     {track}
-                  </span>
+                  </button>
                 );
               })}
             </>

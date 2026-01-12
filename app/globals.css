@@ -23,9 +23,9 @@
   --surface-hover: #e2e8f0;
   
   /* Connection colors */
-  --jockey: #2563eb;
-  --trainer: #16a34a;
-  --sire: #d97706;
+  --jockey: #4b8bff;
+  --trainer: #34d399;
+  --sire: #f5a524;
   
   /* Status colors */
   --success: #16a34a;
@@ -40,23 +40,23 @@
 
 /* Dark mode - Beat the House sophisticated racing aesthetic */
 .dark {
-  --text-primary: #f0f4f8;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --blue-50: #1a222d;
-  --brand: #3b82f6;
-  --brand-light: #1a222d;
-  --content-15: #2a3544;
-  --content-16: #232d3b;
+  --text-primary: #e7edf5;
+  --text-secondary: #a3afc2;
+  --text-tertiary: #7b8aa5;
+  --blue-50: #1b2330;
+  --brand: #4b8ff9;
+  --brand-light: #1b2330;
+  --content-15: #1f2733;
+  --content-16: #243041;
   --content-9: #94a3b8;
-  --btn-link: #3b82f6;
-  --btn-default: #3b82f6;
-  --surface-3: #232d3b;
-  --chip-outline: #2a3544;
-  --surface-1: #0a0e14;
-  --surface-2: #121820;
-  --surface-elevated: #1a222d;
-  --surface-hover: #232d3b;
+  --btn-link: #4b8ff9;
+  --btn-default: #4b8ff9;
+  --surface-3: #243041;
+  --chip-outline: #243041;
+  --surface-1: #0f151f;
+  --surface-2: #131c29;
+  --surface-elevated: #1a2333;
+  --surface-hover: #1f2938;
   
   /* Connection colors */
   --jockey: #3b82f6;

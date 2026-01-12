@@ -10,16 +10,16 @@ interface ConnectionCardProps {
 }
 
 const trackColors: Record<string, { bg: string; text: string }> = {
-  AQU: { bg: "bg-blue-600", text: "text-blue-600" },
-  DMR: { bg: "bg-cyan-600", text: "text-cyan-600" },
-  GP: { bg: "bg-green-600", text: "text-green-600" },
-  LRL: { bg: "bg-pink-600", text: "text-pink-600" },
-  MVR: { bg: "bg-amber-600", text: "text-amber-600" },
-  PEN: { bg: "bg-violet-600", text: "text-violet-600" },
-  PRX: { bg: "bg-rose-600", text: "text-rose-600" },
-  SA: { bg: "bg-red-600", text: "text-red-600" },
-  BAQ: { bg: "bg-blue-600", text: "text-blue-600" },
-  KEE: { bg: "bg-purple-600", text: "text-purple-600" },
+  AQU: { bg: "bg-sky-500/20", text: "text-sky-600" },
+  DMR: { bg: "bg-cyan-500/20", text: "text-cyan-600" },
+  GP: { bg: "bg-emerald-500/20", text: "text-emerald-600" },
+  LRL: { bg: "bg-pink-500/20", text: "text-pink-600" },
+  MVR: { bg: "bg-amber-500/20", text: "text-amber-600" },
+  PEN: { bg: "bg-violet-500/20", text: "text-violet-600" },
+  PRX: { bg: "bg-indigo-500/20", text: "text-indigo-600" },
+  SA: { bg: "bg-rose-500/20", text: "text-rose-600" },
+  BAQ: { bg: "bg-blue-500/20", text: "text-blue-600" },
+  KEE: { bg: "bg-purple-500/20", text: "text-purple-600" },
 };
 
 // Role colors - Beat the House style for better dark mode support

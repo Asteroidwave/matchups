@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Connection, Matchup, Round, RoundPick } from "@/types";
 import { loadAndMergeAllTracks } from "@/lib/ingest";
-import { generateMatchups, MatchupGenerationOptions } from "@/lib/matchups";
+import { generateAllMatchups } from "@/lib/matchup-engine";
 import { saveRound, loadRounds } from "@/lib/store";
 import { matchupWinner } from "@/lib/scoring";
 import { 
@@ -29,7 +29,7 @@ interface AppContextType {
   useExcelData: boolean;
   
   loadData: () => Promise<void>;
-  regenerateMatchups: (options?: MatchupGenerationOptions) => void;
+  regenerateMatchups: (options?: { tolerance?: number; total?: number }) => void;
   setTolerance: (tolerance: number) => void;
   submitRound: (picks: RoundPick[], entryAmount: number, multiplier: number) => void;
   updateBankroll: (amount: number) => void;
@@ -114,13 +114,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       setConnections(loadedConnections);
       
-      // Generate initial matchups
+      // Generate initial matchups (mix of 2-way and 3-way, unique connections)
       if (loadedConnections.length > 0) {
-        const initialMatchups = generateMatchups(loadedConnections, {
-          count: 10,
-          tolerance,
+        const { all } = generateAllMatchups(loadedConnections, {
+          totalTarget: 24,
+          tolerance: tolerance / 1000, // keep compatibility with existing tolerance slider (500 => 0.5)
         });
-        setMatchups(initialMatchups);
+        setMatchups(all);
       } else {
         setMatchups([]);
       }
@@ -144,26 +144,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [selectedTracks, selectedDate, useExcelData]);
   
-  const regenerateMatchups = useCallback((options?: MatchupGenerationOptions) => {
+  const regenerateMatchups = useCallback((options?: { tolerance?: number; total?: number }) => {
     if (connections.length === 0) return;
     
-    const newMatchups = generateMatchups(connections, {
-      count: 10,
-      tolerance,
-      ...options,
+    const { all } = generateAllMatchups(connections, {
+      totalTarget: options?.total ?? 24,
+      tolerance: (options?.tolerance ?? tolerance) / 1000,
     });
-    setMatchups(newMatchups);
+    setMatchups(all);
   }, [connections, tolerance]);
   
   const handleSetTolerance = useCallback((newTolerance: number) => {
     setTolerance(newTolerance);
     // Regenerate matchups with new tolerance
     if (connections.length > 0) {
-      const newMatchups = generateMatchups(connections, {
-        count: 10,
-        tolerance: newTolerance,
+      const { all } = generateAllMatchups(connections, {
+        totalTarget: 24,
+        tolerance: newTolerance / 1000,
       });
-      setMatchups(newMatchups);
+      setMatchups(all);
     }
   }, [connections]);
   
@@ -218,11 +217,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Regenerate matchups for next round
     if (connections.length > 0) {
-      const newMatchups = generateMatchups(connections, {
-        count: 10,
-        tolerance,
+      const { all } = generateAllMatchups(connections, {
+        totalTarget: 24,
+        tolerance: tolerance / 1000,
       });
-      setMatchups(newMatchups);
+      setMatchups(all);
     }
     
     const winnings = won ? entryAmount * finalMultiplier : 0;

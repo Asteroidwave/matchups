@@ -79,7 +79,7 @@ function PastPerformanceTab({
           <div className="col-span-2 text-right">Salary</div>
           <div className="col-span-2 text-right">Appearances</div>
           <div className="col-span-2 text-right">AVPA</div>
-          <div className="col-span-2 text-right">Score</div>
+          <div className="col-span-2 text-right">Points</div>
         </div>
       </div>
       
@@ -453,8 +453,8 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Horse Column - narrower for more connection space */}
-                              <td className="w-[130px] py-3 pl-5 pr-0 align-top">
+                              {/* Horse Column - compact for more connection space */}
+                              <td className="w-[120px] py-3 pl-5 pr-0 align-top">
                                 <div className="flex flex-col gap-2">
                                   {/* PP and Odds */}
                                   <div className="flex items-center gap-2">
@@ -483,7 +483,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
                                       connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--blue-50)]" : ""
                                     }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
                                       <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                         {starter.jockey || "—"}
                                       </span>
@@ -491,7 +491,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
                                       connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--blue-50)]" : ""
                                     }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
                                       <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                         {starter.trainer || "—"}
                                       </span>
@@ -502,7 +502,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
                                       connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--blue-50)]" : ""
                                     }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
                                       <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                         {starter.sire1 || "—"}
                                       </span>
@@ -510,7 +510,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
                                       connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--blue-50)]" : ""
                                     }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
                                       <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                         {starter.sire2 || "—"}
                                       </span>

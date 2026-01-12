@@ -31,7 +31,14 @@ export function MatchupCard({
     <div className="w-full">
       {/* Grey band header */}
       <div className="bg-[var(--content-15)] text-[var(--text-primary)] text-[12px] leading-[18px] font-medium px-4 py-1 flex items-center justify-between">
-        <span>Matchup {matchupNumber !== undefined ? matchupNumber : ''}</span>
+        <span className="flex items-center gap-2">
+          Matchup {matchupNumber !== undefined ? matchupNumber : ''}
+          {matchup.type && (
+            <span className="px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-[11px] font-semibold text-[var(--text-secondary)] border border-[var(--content-15)]">
+              {matchup.setC ? `${matchup.setA.connections.length}v${matchup.setB.connections.length}v${matchup.setC.connections.length}` : `${matchup.setA.connections.length}v${matchup.setB.connections.length}`}
+            </span>
+          )}
+        </span>
         {onCompareClick && (
           <button
             onClick={onCompareClick}

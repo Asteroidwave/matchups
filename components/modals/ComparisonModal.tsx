@@ -258,8 +258,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Horse Column - div.top style (120px width - reduced for more connection space) */}
-                              <td className="w-[120px] py-3 pl-4 pr-0 align-top">
+                              {/* Horse Column - compact to give more space to connections */}
+                              <td className="w-[115px] py-3 pl-4 pr-0 align-top">
                                 <div className="flex flex-col gap-1.5">
                                   {/* PP and Odds in a row */}
                                   <div className="flex items-center gap-1.5">
@@ -283,34 +283,34 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                 <div className="grid grid-cols-2 border border-[var(--content-15)]">
                                   {/* Top row: Jockey and Trainer */}
                                   <div className={`border-r border-b border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--jockey)]/15" : ""
                                   }`}>
-                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
+                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
                                     <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                       {starter.jockey || "—"}
                                     </span>
                                   </div>
                                   <div className={`border-b border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--trainer)]/15" : ""
                                   }`}>
-                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
+                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
                                     <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                       {starter.trainer || "—"}
                                     </span>
                                   </div>
                                   {/* Bottom row: Sire 1 and Sire 2 */}
                                   <div className={`border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--sire)]/15" : ""
                                   }`}>
-                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
                                     <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                       {starter.sire1 || "—"}
                                     </span>
                                   </div>
                                   <div className={`px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--blue-50)]" : ""
+                                    connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--sire)]/15" : ""
                                   }`}>
-                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--blue-50)] text-[var(--brand)] text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                    <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
                                     <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
                                       {starter.sire2 || "—"}
                                     </span>
@@ -385,7 +385,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     <Dialog open={isOpen} onOpenChange={onClose}>
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
         {/* Backdrop */}
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/50 pointer-events-auto" onClick={onClose} />
+        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 pointer-events-auto" onClick={onClose} />
         
         {/* Modal Container - Side by side with gap */}
         <div className="relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8">
