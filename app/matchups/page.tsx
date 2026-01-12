@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { MatchupCard } from "@/components/cards/MatchupCard";
@@ -43,6 +43,61 @@ export default function MatchupsPage() {
   const [entryAmount, setEntryAmount] = useState<string>("");
   const [isFlex, setIsFlex] = useState<boolean>(false);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<"all" | "jockey" | "trainer" | "sire" | "mixed">("all");
+  const [sortBy, setSortBy] = useState<"none" | "salary-high" | "salary-low" | "apps-high" | "apps-low" | "avpa-high" | "avpa-low">("none");
+  
+  // Filter and sort matchups
+  const filteredAndSortedMatchups = React.useMemo(() => {
+    let result = [...matchups];
+    
+    // Apply role filter
+    if (roleFilter !== "all") {
+      result = result.filter(matchup => {
+        const allConnections = [
+          ...matchup.setA.connections,
+          ...matchup.setB.connections,
+          ...(matchup.setC?.connections || [])
+        ];
+        
+        if (roleFilter === "mixed") {
+          // Mixed = matchups with connections from multiple roles
+          const roles = new Set(allConnections.map(c => c.role));
+          return roles.size > 1;
+        }
+        
+        // Single role filter
+        return allConnections.some(c => c.role === roleFilter);
+      });
+    }
+    
+    // Apply sorting
+    if (sortBy !== "none") {
+      result.sort((a, b) => {
+        const getMatchupValue = (m: Matchup, key: string) => {
+          const allConns = [...m.setA.connections, ...m.setB.connections, ...(m.setC?.connections || [])];
+          switch (key) {
+            case "salary":
+              return allConns.reduce((sum, c) => sum + (c.salarySum || 0), 0);
+            case "apps":
+              return allConns.reduce((sum, c) => sum + (c.apps || 0), 0);
+            case "avpa":
+              const totalAvpa = allConns.reduce((sum, c) => sum + (c.avpa30d || 0), 0);
+              return totalAvpa / (allConns.length || 1);
+            default:
+              return 0;
+          }
+        };
+        
+        const [key, direction] = sortBy.split("-");
+        const valA = getMatchupValue(a, key);
+        const valB = getMatchupValue(b, key);
+        
+        return direction === "high" ? valB - valA : valA - valB;
+      });
+    }
+    
+    return result;
+  }, [matchups, roleFilter, sortBy]);
   
   // Auto-reload matchups when navigating from results page
   useEffect(() => {
@@ -298,17 +353,61 @@ export default function MatchupsPage() {
               </div>
             </div>
             
-            {/* Divider - matching Starters panel */}
-            <div className="border-b border-[var(--content-15)]"></div>
+            {/* Filter and Sort Bar */}
+            <div className="flex-shrink-0 px-4 py-2 border-b border-[var(--content-15)] flex items-center justify-between gap-4">
+              {/* Role Filter Tabs */}
+              <div className="flex items-center gap-1">
+                {[
+                  { key: "all", label: "All" },
+                  { key: "jockey", label: "Jockeys" },
+                  { key: "trainer", label: "Trainers" },
+                  { key: "sire", label: "Sires" },
+                  { key: "mixed", label: "Mixed" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setRoleFilter(tab.key as typeof roleFilter)}
+                    className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+                      roleFilter === tab.key
+                        ? "bg-[var(--brand)] text-white"
+                        : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="px-2 py-1.5 rounded-md text-[13px] bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] focus:outline-none focus:border-[var(--brand)]"
+                >
+                  <option value="none">None</option>
+                  <option value="salary-high">Salary (High)</option>
+                  <option value="salary-low">Salary (Low)</option>
+                  <option value="apps-high">Apps (High)</option>
+                  <option value="apps-low">Apps (Low)</option>
+                  <option value="avpa-high">AVPA (High)</option>
+                  <option value="avpa-low">AVPA (Low)</option>
+                </select>
+                <span className="text-[12px] text-[var(--text-tertiary)]">
+                  Matchups {filteredAndSortedMatchups.length}
+                </span>
+              </div>
+            </div>
           
                  <div className="flex-1 overflow-y-auto pb-4" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
               <div className="w-full">
-            {matchups.length === 0 ? (
+            {filteredAndSortedMatchups.length === 0 ? (
               <Card className="p-12 text-center bg-[var(--surface-1)] border border-[var(--content-15)]">
-                <div className="text-gray-500">No matchups available. Try adjusting tolerance.</div>
+                <div className="text-[var(--text-secondary)]">No matchups available. Try adjusting filters or tolerance.</div>
               </Card>
             ) : (
-              matchups.map((matchup, index) => (
+              filteredAndSortedMatchups.map((matchup, index) => (
                 <div key={matchup.id} data-matchup-id={matchup.id} className="w-full">
                   <MatchupCard
                     matchup={matchup}
