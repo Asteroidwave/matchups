@@ -64,15 +64,15 @@ export interface Matchup {
   id: string;
   setA: SetSide;
   setB: SetSide;
-  setC?: SetSide;  // For 1v1v1 matchups
+  setC?: SetSide;  // For 3-way matchups
   matchupType?: string;
-  type?: '1v1' | '1v1v1' | '2v1' | '1v2';
+  type?: '1v1' | '1v1v1' | '2v1' | '1v2' | '2v1v1' | '1v2v1' | '1v1v2';
   balance?: number;  // How balanced the matchup is (0-100)
 }
 
 export interface RoundPick {
   matchupId: string;
-  chosen: "A" | "B";
+  chosen: "A" | "B" | "C";
 }
 
 export interface Round {

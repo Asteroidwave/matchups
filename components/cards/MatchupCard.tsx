@@ -4,8 +4,8 @@ import { GitCompare } from "lucide-react";
 
 interface MatchupCardProps {
   readonly matchup: Matchup;
-  readonly selected?: "A" | "B";
-  readonly onSelect: (side: "A" | "B") => void;
+  readonly selected?: "A" | "B" | "C";
+  readonly onSelect: (side: "A" | "B" | "C") => void;
   readonly onConnectionClick?: (connectionId: string) => void;
   readonly onConnectionNameClick?: (connectionId: string) => void;
   readonly showPoints?: boolean;
@@ -27,17 +27,24 @@ export function MatchupCard({
   matchupNumber,
   onCompareClick,
 }: MatchupCardProps) {
+  const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
+  const typeLabel = is3Way 
+    ? `${matchup.setA.connections.length}v${matchup.setB.connections.length}v${matchup.setC!.connections.length}`
+    : `${matchup.setA.connections.length}v${matchup.setB.connections.length}`;
+  
   return (
     <div className="w-full">
       {/* Grey band header */}
       <div className="bg-[var(--content-15)] text-[var(--text-primary)] text-[12px] leading-[18px] font-medium px-4 py-1 flex items-center justify-between">
         <span className="flex items-center gap-2">
           Matchup {matchupNumber !== undefined ? matchupNumber : ''}
-          {matchup.type && (
-            <span className="px-2 py-0.5 rounded-full bg-[var(--surface-2)] text-[11px] font-semibold text-[var(--text-secondary)] border border-[var(--content-15)]">
-              {matchup.setC ? `${matchup.setA.connections.length}v${matchup.setB.connections.length}v${matchup.setC.connections.length}` : `${matchup.setA.connections.length}v${matchup.setB.connections.length}`}
-            </span>
-          )}
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+            is3Way 
+              ? 'bg-purple-500/20 text-purple-600 border-purple-500/30' 
+              : 'bg-[var(--surface-2)] text-[var(--text-secondary)] border-[var(--content-15)]'
+          }`}>
+            {typeLabel}
+          </span>
         </span>
         {onCompareClick && (
           <button
@@ -51,7 +58,7 @@ export function MatchupCard({
       </div>
       {/* Matchup content - full width */}
       <div className="bg-[var(--surface-1)] border-b border-[var(--content-15)]">
-        <div className="grid grid-cols-2 gap-4 p-4">
+        <div className={`grid gap-4 p-4 ${is3Way ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <SetCard
             setSide={matchup.setA}
             label={undefined}
@@ -76,6 +83,20 @@ export function MatchupCard({
             showAvpaRace={showAvpaRace}
             highlightedConnectionId={highlightedConnectionId}
           />
+          {is3Way && matchup.setC && (
+            <SetCard
+              setSide={matchup.setC}
+              label={undefined}
+              isSelected={selected === "C"}
+              onSelect={() => onSelect("C")}
+              onConnectionClick={onConnectionClick}
+              onConnectionNameClick={onConnectionNameClick}
+              showSalary={true}
+              showPoints={showPoints}
+              showAvpaRace={showAvpaRace}
+              highlightedConnectionId={highlightedConnectionId}
+            />
+          )}
         </div>
       </div>
     </div>

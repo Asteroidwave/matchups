@@ -33,7 +33,7 @@ export default function MatchupsPage() {
     setSelectedDate,
   } = useApp();
   
-  const [selections, setSelections] = useState<Record<string, "A" | "B">>({});
+  const [selections, setSelections] = useState<Record<string, "A" | "B" | "C">>({});
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [filteredConnection, setFilteredConnection] = useState<Connection | null>(null);
   const [highlightedConnectionId, setHighlightedConnectionId] = useState<string | null>(null);
@@ -115,7 +115,7 @@ export default function MatchupsPage() {
     }
   }, [regenerateMatchups, tolerance]);
   
-  const handleSelect = (matchupId: string, side: "A" | "B") => {
+  const handleSelect = (matchupId: string, side: "A" | "B" | "C") => {
     setSelections((prev) => {
       const current = prev[matchupId];
       if (current === side) {
@@ -166,7 +166,8 @@ export default function MatchupsPage() {
   const findMatchupForConnection = (connectionId: string) => {
     return matchups.findIndex(m => 
       m.setA.connections.some(c => c.id === connectionId) ||
-      m.setB.connections.some(c => c.id === connectionId)
+      m.setB.connections.some(c => c.id === connectionId) ||
+      m.setC?.connections.some(c => c.id === connectionId)
     );
   };
   
@@ -275,7 +276,18 @@ export default function MatchupsPage() {
     const matchup = matchups.find(m => m.id === matchupId);
     if (!matchup) return null;
     
-    const chosenSet = chosen === "A" ? matchup.setA : matchup.setB;
+    // Handle A, B, or C selections for 3-way matchups
+    let chosenSet;
+    if (chosen === "A") {
+      chosenSet = matchup.setA;
+    } else if (chosen === "B") {
+      chosenSet = matchup.setB;
+    } else if (chosen === "C" && matchup.setC) {
+      chosenSet = matchup.setC;
+    } else {
+      return null;
+    }
+    
     const connectionNames = chosenSet.connections.map(c => c.name);
     
     return {

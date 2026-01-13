@@ -122,7 +122,11 @@ export function TrackDatePicker({
     // Current month days
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(currentMonth.year, currentMonth.month, day);
-      const dateStr = date.toISOString().split('T')[0];
+      // Use local date format to avoid timezone issues
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${d}`;
       const hasRaces = availableDatesSet.has(dateStr);
       const isSelected = dateStr === selectedDate;
       

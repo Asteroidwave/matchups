@@ -327,7 +327,7 @@ export function generate2v1Matchups(
  */
 export function generate1v1v1Matchups(
   connections: Connection[],
-  tolerance: number = 0.1,  // Allow deviation from 33%
+  tolerance: number = 0.25,  // More permissive to actually generate matchups
   maxMatchups: number = 20
 ): Matchup[] {
   const matchups: Matchup[] = [];
@@ -506,7 +506,7 @@ export function generate2v1v1Matchups(
 
         const matchup: Matchup = {
           id: `2v1v1-${matchups.length + 1}`,
-          matchupType: '2v1v1',
+          type: '2v1v1',
           setA: {
             connections: setAConns,
             salaryTotal: setAConns.reduce((sum, c) => sum + (c.salarySum || 0), 0),
@@ -569,12 +569,12 @@ export function generateAllMatchups(
   all: Matchup[];
 } {
   const { 
-    max1v1 = 8, 
+    max1v1 = 12, 
     max2v1 = 4,
-    max1v1v1 = 6,
-    max2v1v1 = 2,
-    tolerance = 0.2,
-    totalTarget = 20 
+    max1v1v1 = 8,
+    max2v1v1 = 3,
+    tolerance = 0.35,  // More permissive to allow 3-way matchups
+    totalTarget = 24 
   } = options;
 
   // Shuffle connections for variety each time

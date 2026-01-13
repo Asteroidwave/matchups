@@ -137,12 +137,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tolerance, useExcelData, selectedTracks, selectedDate]);
   
-  // Load data when tracks or date changes
+  // Load data when tracks or date changes - but debounce to prevent freezing
+  const loadDataRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   useEffect(() => {
     if (selectedTracks.length > 0 && selectedDate) {
-      loadData();
+      // Clear any pending load
+      if (loadDataRef.current) {
+        clearTimeout(loadDataRef.current);
+      }
+      
+      // Debounce the load to prevent rapid reloads
+      loadDataRef.current = setTimeout(() => {
+        loadData();
+      }, 100);
+      
+      return () => {
+        if (loadDataRef.current) {
+          clearTimeout(loadDataRef.current);
+        }
+      };
     }
-  }, [selectedTracks, selectedDate, useExcelData]);
+  }, [selectedTracks.join(','), selectedDate, useExcelData]); // Use join to prevent array reference changes
   
   const regenerateMatchups = useCallback((options?: { tolerance?: number; total?: number }) => {
     if (connections.length === 0) return;
