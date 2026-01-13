@@ -11,7 +11,7 @@ import {
   getDataForDate, 
   findMultiTrackDates,
   AVAILABLE_TRACKS 
-} from "@/lib/parseExcel";
+} from "@/lib/parseJson";
 
 interface AppContextType {
   connections: Connection[];

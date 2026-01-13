@@ -25,6 +25,9 @@ export interface PastPerformanceEntry {
   finish: number;
   totalPoints: number;
   finalOdds: number;
+  salary?: number;
+  avpa?: number;
+  postPosition?: number;
 }
 
 export interface Connection {
