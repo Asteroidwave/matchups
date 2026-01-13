@@ -69,32 +69,46 @@ function convertExcelToJson(trackCode, excelFile) {
         dateSet.add(date);
       }
       
-      // Parse ML odds
-      const mlOdds = row['M/L Odds'] || row['ML Odds'] || row['Odds'] || '';
-      let mlOddsDecimal = 0;
-      if (typeof mlOdds === 'string' && mlOdds.includes('/')) {
+      // Parse ML odds - check multiple possible column names
+      const mlOdds = row['OG M/L'] || row['New M/L'] || row['M/L Odds'] || row['ML Odds'] || '';
+      let mlOddsDecimal = row['OG M/L Dec'] || row['New M/L Dec'] || 0;
+      
+      // If no decimal odds, try to parse from fraction
+      if (!mlOddsDecimal && typeof mlOdds === 'string' && mlOdds.includes('/')) {
         const [num, den] = mlOdds.split('/').map(Number);
         mlOddsDecimal = den > 0 ? num / den : 0;
-      } else if (typeof mlOdds === 'number') {
-        mlOddsDecimal = mlOdds;
       }
+      
+      // Get salary - prefer New Sal if available and > 0, otherwise use OG Sal
+      const ogSalary = row['OG Sal.'] || row['OG Salary'] || 0;
+      const newSalary = row['New Sal.'] || row['New Salary'] || 0;
+      const salary = newSalary > 0 ? newSalary : ogSalary;
+      
+      // Check if scratched (salary becomes 0 or horse name contains SCR)
+      const horseName = row['Horse'] || row['Horse Name'] || '';
+      const isScratched = horseName.includes('(SCR)') || horseName.includes('SCR') || 
+                          row['Scratched'] === true || row['Is Scratched'] === true ||
+                          (ogSalary > 0 && salary === 0);
       
       return {
         date,
         race: row['Race'] || row['Race #'] || 0,
-        horse: row['Horse'] || row['Horse Name'] || '',
+        horse: horseName,
         pp: row['PP'] || row['Post Position'] || 0,
         jockey: row['Jockey'] || '',
         trainer: row['Trainer'] || '',
-        sire1: row['Sire'] || row['Sire 1'] || '',
+        sire1: row['Sire 1'] || row['Sire'] || '',
         sire2: row['Sire 2'] || row['Dam Sire'] || '',
         mlOdds: String(mlOdds),
-        mlOddsDecimal,
-        salary: row['Salary'] || row['DK Salary'] || 0,
+        mlOddsDecimal: Number(mlOddsDecimal) || 0,
+        salary: Number(salary) || 0,
         finish: row['Finish'] || row['Pos'] || row['Position'] || 0,
         totalPoints: row['Total Points'] || row['Points'] || row['DK Points'] || 0,
         avpa: row['AVPA'] || row['Avg AVPA'] || 0,
-        isScratched: Boolean(row['Scratched'] || row['SCR'] || row['Is Scratched']),
+        raceAvpa: row['Race AVPA'] || 0,
+        trackAvpa: row['Track AVPA'] || 0,
+        finalOdds: row['Final Odds'] || mlOddsDecimal || 0,
+        isScratched,
       };
     }).filter(h => h.horse && h.date); // Filter out invalid rows
     

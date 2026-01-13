@@ -32,6 +32,9 @@ export interface HorseEntry {
   finish: number;
   totalPoints: number;
   avpa: number;
+  raceAvpa?: number;
+  trackAvpa?: number;
+  finalOdds?: number;
   isScratched: boolean;
 }
 

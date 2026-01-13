@@ -304,17 +304,20 @@ export default function MatchupsPage() {
     Number.parseFloat(entryAmount) > 0 &&
     Number.parseFloat(entryAmount) <= bankroll;
   
-  if (isLoading) {
+  // Track if this is the very first load (no connections yet)
+  const isInitialLoad = isLoading && connections.length === 0;
+  
+  if (isInitialLoad) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading race data...</div>
+      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
+        <div className="text-xl text-[var(--text-secondary)]">Loading race data...</div>
       </div>
     );
   }
   
-  if (error) {
+  if (error && connections.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
         <div className="text-center">
           <div className="text-xl text-red-600 mb-4">{error}</div>
           <Button onClick={() => globalThis.location.reload()}>Retry</Button>
