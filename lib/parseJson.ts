@@ -26,15 +26,37 @@ export interface HorseEntry {
   trainer: string;
   sire1: string;
   sire2?: string;
+  // Odds
   mlOdds: string;
   mlOddsDecimal: number;
+  newMlOdds?: string;
+  newMlOddsDecimal?: number;
+  finalOdds?: number;
+  oddsMovement?: number;
+  oddsDrift?: number;
+  favorite?: boolean;
+  // Salary
+  ogSalary?: number;
   salary: number;
+  scratchAmount?: number;
+  // Results
   finish: number;
   totalPoints: number;
+  pointsWithScrAdj?: number;
+  // AVPA
   avpa: number;
   raceAvpa?: number;
+  dayAvpa?: number;
   trackAvpa?: number;
-  finalOdds?: number;
+  // Race conditions
+  fieldSize?: number;
+  weather?: string;
+  surface?: string;
+  trackCondition?: string;
+  distance?: number;
+  // Timing
+  finalTime?: string;
+  runningStyle?: string;
   isScratched: boolean;
 }
 
@@ -50,15 +72,65 @@ export interface OddsBucketStats {
   count: number;
 }
 
+// Connection stats structure (from Jockey/Trainer/Sire Stats sheets)
+interface ConnectionStats {
+  name: string;
+  ogApps: number;
+  starts: number;
+  avgOdds: number;
+  ogSalary: number;
+  scrAmount: number;
+  newSalary: number;
+  totalPoints: number;
+  avpa: number;
+  avpa14d: number;
+  avpa30d: number;
+  avpa90d: number;
+  avpa150d: number;
+  avpa180d: number;
+  avpa270d: number;
+  avpa360d: number;
+  wins: number;
+  places: number;
+  shows: number;
+  winPct: number;
+  itmPct: number;
+  avgFinish: number;
+  avgField: number;
+  mu: number;
+  variance: number;
+  sigma: number;
+}
+
+// Odds bucket analysis
+interface OddsBucket {
+  oddsRange: string;
+  oddsDec: number;
+  low: number;
+  high: number;
+  numHorses: number;
+  avgPts: number;
+  muRaw: number;
+  sigmaRaw: number;
+  muSmooth: number;
+  sigmaSmooth: number;
+}
+
 interface TrackJsonData {
   trackCode: string;
   horses: HorseEntry[];
   dates: string[];
-  connections: {
-    jockeys: { name: string; apps: number; avgOdds: number; avpa: number; salary: number; points: number }[];
-    trainers: { name: string; apps: number; avgOdds: number; avpa: number; salary: number; points: number }[];
-    sires: { name: string; apps: number; avgOdds: number; avpa: number; salary: number; points: number }[];
-  };
+  // Daily data (per date)
+  dailyJockeys: any[];
+  dailyTrainers: any[];
+  dailySires: any[];
+  // Overall stats
+  jockeyStats: ConnectionStats[];
+  trainerStats: ConnectionStats[];
+  sireStats: ConnectionStats[];
+  horseStats: any[];
+  // Odds analysis
+  oddsBucketAnalysis: OddsBucket[];
 }
 
 // Cache for loaded track data
@@ -104,33 +176,48 @@ const DEFAULT_ODDS_STATS: Record<string, OddsBucketStats> = {
   '100+': { mean: 1, std: 5, count: 20 },
 };
 
-function buildOddsBucketStats(horses: HorseEntry[]): Map<string, OddsBucketStats> {
-  const bucketData = new Map<string, number[]>();
-  
-  horses.forEach(horse => {
-    if (horse.isScratched || !horse.mlOddsDecimal) return;
-    const bucket = getOddsBucket(horse.mlOddsDecimal);
-    if (!bucketData.has(bucket)) {
-      bucketData.set(bucket, []);
-    }
-    bucketData.get(bucket)!.push(horse.totalPoints);
-  });
-  
+function buildOddsBucketStats(horses: HorseEntry[], oddsBucketAnalysis?: OddsBucket[]): Map<string, OddsBucketStats> {
   const stats = new Map<string, OddsBucketStats>();
   
-  // Use actual data if available, otherwise use defaults
-  for (const bucket of Object.keys(DEFAULT_ODDS_STATS)) {
-    const points = bucketData.get(bucket);
-    if (points && points.length > 10) {
-      const mean = points.reduce((a, b) => a + b, 0) / points.length;
-      const variance = points.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / points.length;
-      stats.set(bucket, {
-        mean,
-        std: Math.sqrt(variance),
-        count: points.length,
-      });
-    } else {
-      stats.set(bucket, DEFAULT_ODDS_STATS[bucket]);
+  // First, try to use pre-computed odds bucket analysis if available
+  if (oddsBucketAnalysis && oddsBucketAnalysis.length > 0) {
+    oddsBucketAnalysis.forEach(bucket => {
+      if (bucket.oddsRange) {
+        stats.set(bucket.oddsRange, {
+          mean: bucket.muSmooth || bucket.muRaw || bucket.avgPts,
+          std: bucket.sigmaSmooth || bucket.sigmaRaw || 10,
+          count: bucket.numHorses,
+        });
+      }
+    });
+  }
+  
+  // Fall back to calculating from horse data
+  if (stats.size === 0) {
+    const bucketData = new Map<string, number[]>();
+    
+    horses.forEach(horse => {
+      if (horse.isScratched || !horse.mlOddsDecimal) return;
+      const bucket = getOddsBucket(horse.mlOddsDecimal);
+      if (!bucketData.has(bucket)) {
+        bucketData.set(bucket, []);
+      }
+      bucketData.get(bucket)!.push(horse.totalPoints);
+    });
+    
+    for (const bucket of Object.keys(DEFAULT_ODDS_STATS)) {
+      const points = bucketData.get(bucket);
+      if (points && points.length > 10) {
+        const mean = points.reduce((a, b) => a + b, 0) / points.length;
+        const variance = points.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / points.length;
+        stats.set(bucket, {
+          mean,
+          std: Math.sqrt(variance),
+          count: points.length,
+        });
+      } else {
+        stats.set(bucket, DEFAULT_ODDS_STATS[bucket]);
+      }
     }
   }
   
@@ -204,8 +291,8 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
   const dayHorses = data.horses.filter((h) => h.date === date);
   const validDayHorses = dayHorses.filter((h) => !h.isScratched);
   
-  // Build odds bucket stats from all horses
-  const oddsBucketStats = buildOddsBucketStats(data.horses);
+  // Build odds bucket stats from pre-computed analysis or horse data
+  const oddsBucketStats = buildOddsBucketStats(data.horses, data.oddsBucketAnalysis);
 
   // Group by race
   const raceMap = new Map<number, HorseEntry[]>();
@@ -281,8 +368,8 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       };
     });
 
-    // Get connection-level stats from the pre-computed data
-    const connData = data.connections.jockeys.find(j => j.name === jockeyName);
+    // Get connection-level stats from the Jockey Stats sheet (has 30d AVPA, etc.)
+    const connStats = data.jockeyStats?.find(j => j.name === jockeyName);
 
     connections.push({
       id,
@@ -290,14 +377,17 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       role: 'jockey',
       trackSet: [trackCode],
       apps: horses.length,
-      avgOdds: connData?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
+      avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connData?.avpa || (totalPoints / horses.length),
+      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
       avpaRace: totalPoints / horses.length,
       starters,
-      mu: totalMu,
-      sigma: Math.sqrt(totalVariance),
+      mu: connStats?.mu || totalMu,
+      sigma: connStats?.sigma || Math.sqrt(totalVariance),
+      winRate: connStats?.winPct,
+      itmRate: connStats?.itmPct,
+      avgFinish: connStats?.avgFinish,
     });
   });
 
@@ -343,7 +433,8 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       };
     });
 
-    const connData = data.connections.trainers.find(t => t.name === trainerName);
+    // Get connection-level stats from the Trainer Stats sheet
+    const connStats = data.trainerStats?.find(t => t.name === trainerName);
 
     connections.push({
       id,
@@ -351,14 +442,17 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       role: 'trainer',
       trackSet: [trackCode],
       apps: horses.length,
-      avgOdds: connData?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
+      avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connData?.avpa || (totalPoints / horses.length),
+      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
       avpaRace: totalPoints / horses.length,
       starters,
-      mu: totalMu,
-      sigma: Math.sqrt(totalVariance),
+      mu: connStats?.mu || totalMu,
+      sigma: connStats?.sigma || Math.sqrt(totalVariance),
+      winRate: connStats?.winPct,
+      itmRate: connStats?.itmPct,
+      avgFinish: connStats?.avgFinish,
     });
   });
 
@@ -409,7 +503,8 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       };
     });
 
-    const connData = data.connections.sires.find(s => s.name === sireName);
+    // Get connection-level stats from the Sire Stats sheet
+    const connStats = data.sireStats?.find(s => s.name === sireName);
 
     connections.push({
       id,
@@ -417,14 +512,17 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       role: 'sire',
       trackSet: [trackCode],
       apps: horses.length,
-      avgOdds: connData?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
+      avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connData?.avpa || (totalPoints / horses.length),
+      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
       avpaRace: totalPoints / horses.length,
       starters,
-      mu: totalMu,
-      sigma: Math.sqrt(totalVariance),
+      mu: connStats?.mu || totalMu,
+      sigma: connStats?.sigma || Math.sqrt(totalVariance),
+      winRate: connStats?.winPct,
+      itmRate: connStats?.itmPct,
+      avgFinish: connStats?.avgFinish,
     });
   });
 
