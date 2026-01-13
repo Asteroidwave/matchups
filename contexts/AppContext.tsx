@@ -139,9 +139,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   
   // Load data when tracks or date changes - but debounce to prevent freezing
   const loadDataRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLoadKey = React.useRef<string>('');
   
   useEffect(() => {
     if (selectedTracks.length > 0 && selectedDate) {
+      // Create a key to detect actual changes
+      const loadKey = `${selectedTracks.join(',')}-${selectedDate}-${useExcelData}`;
+      
+      // Skip if nothing actually changed
+      if (loadKey === lastLoadKey.current) {
+        return;
+      }
+      
       // Clear any pending load
       if (loadDataRef.current) {
         clearTimeout(loadDataRef.current);
@@ -149,8 +158,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       // Debounce the load to prevent rapid reloads
       loadDataRef.current = setTimeout(() => {
-        loadData();
-      }, 100);
+        lastLoadKey.current = loadKey;
+    loadData();
+      }, 300); // Increased debounce time
       
       return () => {
         if (loadDataRef.current) {

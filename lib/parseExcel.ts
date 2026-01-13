@@ -58,6 +58,64 @@ export interface TrackDataLoaded {
 // Cache for loaded track data
 const trackCache = new Map<string, TrackDataLoaded>();
 
+// Cache for track metadata (lightweight - just dates)
+let trackMetadataCache: { code: string; name: string; dates: string[] }[] | null = null;
+
+/**
+ * Get track metadata (dates) from lightweight JSON - no Excel parsing needed
+ */
+export async function getTrackMetadata(): Promise<{ code: string; name: string; dates: string[] }[]> {
+  if (trackMetadataCache) {
+    return trackMetadataCache;
+  }
+  
+  try {
+    const response = await fetch('/track-metadata.json');
+    if (response.ok) {
+      const data = await response.json();
+      trackMetadataCache = data.tracks;
+      return data.tracks;
+    }
+  } catch (err) {
+    console.warn('Failed to load track metadata, falling back to Excel parsing');
+  }
+  
+  // Fall back to loading from Excel (slow path)
+  return getAvailableTracksFromExcel();
+}
+
+/**
+ * Get available tracks by loading Excel files (slow - avoid if possible)
+ */
+async function getAvailableTracksFromExcel(): Promise<{ code: string; name: string; dates: string[] }[]> {
+  const tracks: { code: string; name: string; dates: string[] }[] = [];
+  
+  for (const track of AVAILABLE_TRACKS) {
+    try {
+      const data = await loadTrackData(track.code);
+      
+      // Filter dates with valid data
+      const validDates = data.dates.filter(date => {
+        const dayHorses = data.horses.filter(h => h.date === date);
+        const validHorses = dayHorses.filter(h => !h.isScratched);
+        return validHorses.length > 0;
+      });
+      
+      if (validDates.length > 0) {
+        tracks.push({
+          code: track.code,
+          name: track.name,
+          dates: validDates,
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to load track ${track.code}:`, error);
+    }
+  }
+  
+  return tracks;
+}
+
 // Odds bucket definitions
 const ODDS_BUCKETS = [
   { min: 0, max: 1, label: '0-1' },
@@ -367,34 +425,11 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
 
 /**
  * Get all available tracks with their race dates
+ * Uses lightweight JSON metadata instead of parsing Excel files
  */
 export async function getAvailableTracks(): Promise<{ code: string; name: string; dates: string[] }[]> {
-  const tracks: { code: string; name: string; dates: string[] }[] = [];
-  
-  for (const track of AVAILABLE_TRACKS) {
-    try {
-      const data = await loadTrackData(track.code);
-      
-      // Filter dates with valid data (at least some non-scratched horses)
-      const validDates = data.dates.filter(date => {
-        const dayHorses = data.horses.filter(h => h.date === date);
-        const validHorses = dayHorses.filter(h => !h.isScratched);
-        return validHorses.length > 0;
-      });
-      
-      if (validDates.length > 0) {
-        tracks.push({
-          code: track.code,
-          name: track.name,
-          dates: validDates,
-        });
-      }
-    } catch (error) {
-      console.error(`Failed to load track ${track.code}:`, error);
-    }
-  }
-  
-  return tracks;
+  // Use the lightweight metadata (no Excel parsing)
+  return getTrackMetadata();
 }
 
 /**

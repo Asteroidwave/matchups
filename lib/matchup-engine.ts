@@ -51,36 +51,32 @@ export function calculateHeadToHeadProbability(
 
 /**
  * Calculate probabilities for a 1v1v1 matchup
- * Returns probability of each option winning (A, B, C)
+ * Uses a simplified analytical approximation instead of expensive Monte Carlo
  */
 export function calculate1v1v1Probabilities(
   muA: number, sigmaA: number,
   muB: number, sigmaB: number,
   muC: number, sigmaC: number
 ): { pA: number; pB: number; pC: number } {
-  // Monte Carlo simulation for 3-way comparison
-  const simulations = 10000;
-  let winsA = 0, winsB = 0, winsC = 0;
-
-  for (let i = 0; i < simulations; i++) {
-    // Generate random samples from each distribution
-    const sampleA = muA + sigmaA * boxMullerRandom();
-    const sampleB = muB + sigmaB * boxMullerRandom();
-    const sampleC = muC + sigmaC * boxMullerRandom();
-
-    if (sampleA > sampleB && sampleA > sampleC) {
-      winsA++;
-    } else if (sampleB > sampleA && sampleB > sampleC) {
-      winsB++;
-    } else {
-      winsC++;
-    }
-  }
-
+  // Use pairwise probabilities as an approximation (much faster than Monte Carlo)
+  // This is an approximation but good enough for our purposes
+  const pAvsB = calculateHeadToHeadProbability(muA, sigmaA, muB, sigmaB);
+  const pAvsC = calculateHeadToHeadProbability(muA, sigmaA, muC, sigmaC);
+  const pBvsC = calculateHeadToHeadProbability(muB, sigmaB, muC, sigmaC);
+  
+  // Approximate 3-way probabilities using pairwise results
+  // P(A wins) ≈ P(A>B) * P(A>C) adjusted for overlap
+  const rawA = pAvsB * pAvsC;
+  const rawB = (1 - pAvsB) * pBvsC;
+  const rawC = (1 - pAvsC) * (1 - pBvsC);
+  
+  // Normalize to sum to 1
+  const total = rawA + rawB + rawC;
+  
   return {
-    pA: winsA / simulations,
-    pB: winsB / simulations,
-    pC: winsC / simulations,
+    pA: rawA / total,
+    pB: rawB / total,
+    pC: rawC / total,
   };
 }
 
@@ -162,17 +158,22 @@ export function generate1v1Matchups(
     return getConnectionMu(b) - getConnectionMu(a);
   });
 
-  for (let i = 0; i < sortedConnections.length && matchups.length < maxMatchups; i++) {
+  // Limit search to first N connections for performance
+  const searchLimit = Math.min(sortedConnections.length, 100);
+
+  for (let i = 0; i < searchLimit && matchups.length < maxMatchups; i++) {
     if (usedConnections.has(sortedConnections[i].id)) continue;
 
     const connA = sortedConnections[i];
     const statsA = calculateSetMuSigma([connA]);
 
-    // Find best matching opponent
+    // Find best matching opponent - limit search range for performance
     let bestMatch: Connection | null = null;
     let bestProbDiff = Infinity;
+    
+    const searchEnd = Math.min(searchLimit, i + 30); // Only search nearby connections
 
-    for (let j = i + 1; j < sortedConnections.length; j++) {
+    for (let j = i + 1; j < searchEnd; j++) {
       if (usedConnections.has(sortedConnections[j].id)) continue;
 
       const connB = sortedConnections[j];
@@ -187,6 +188,8 @@ export function generate1v1Matchups(
       if (diff < bestProbDiff && diff <= tolerance) {
         bestProbDiff = diff;
         bestMatch = connB;
+        // Early exit if we found a good match
+        if (diff < 0.05) break;
       }
     }
 
@@ -233,11 +236,12 @@ export function generate1v1Matchups(
 
 /**
  * Generate balanced 2v1 matchups (2 connections vs 1 connection, targeting 50/50)
+ * Optimized with limited search range
  */
 export function generate2v1Matchups(
   connections: Connection[],
   tolerance: number = 0.15,
-  maxMatchups: number = 20
+  maxMatchups: number = 10
 ): Matchup[] {
   const matchups: Matchup[] = [];
   const usedConnections = new Set<string>();
@@ -246,21 +250,28 @@ export function generate2v1Matchups(
     return getConnectionMu(b) - getConnectionMu(a);
   });
 
+  // Limit search for performance
+  const searchLimit = Math.min(sortedConnections.length, 40);
+
   // Pick the strongest connection for set A (single)
-  for (let i = 0; i < sortedConnections.length && matchups.length < maxMatchups; i++) {
+  for (let i = 0; i < searchLimit && matchups.length < maxMatchups; i++) {
     if (usedConnections.has(sortedConnections[i].id)) continue;
 
     const connA = sortedConnections[i];
     const statsA = calculateSetMuSigma([connA]);
 
-    // Find best pair for set B
+    // Find best pair for set B - limited search range
     let bestPair: [Connection, Connection] | null = null;
     let bestProbDiff = Infinity;
+    
+    const jEnd = Math.min(searchLimit - 1, i + 15);
 
-    for (let j = i + 1; j < sortedConnections.length - 1; j++) {
+    for (let j = i + 1; j < jEnd; j++) {
       if (usedConnections.has(sortedConnections[j].id)) continue;
       
-      for (let k = j + 1; k < sortedConnections.length; k++) {
+      const kEnd = Math.min(searchLimit, j + 10);
+      
+      for (let k = j + 1; k < kEnd; k++) {
         if (usedConnections.has(sortedConnections[k].id)) continue;
 
         const connB1 = sortedConnections[j];
@@ -276,8 +287,11 @@ export function generate2v1Matchups(
         if (diff < bestProbDiff && diff <= tolerance) {
           bestProbDiff = diff;
           bestPair = [connB1, connB2];
+          // Early exit if good enough
+          if (diff < 0.05) break;
         }
       }
+      if (bestProbDiff < 0.05) break;
     }
 
     if (bestPair) {
@@ -324,6 +338,7 @@ export function generate2v1Matchups(
 
 /**
  * Generate balanced 1v1v1 matchups (targeting 33/33/33)
+ * Optimized to limit search space for performance
  */
 export function generate1v1v1Matchups(
   connections: Connection[],
@@ -338,7 +353,10 @@ export function generate1v1v1Matchups(
     return getConnectionMu(b) - getConnectionMu(a);
   });
 
-  for (let i = 0; i < sortedConnections.length - 2 && matchups.length < maxMatchups; i++) {
+  // Limit search to first N connections for performance
+  const searchLimit = Math.min(sortedConnections.length, 60);
+
+  for (let i = 0; i < searchLimit - 2 && matchups.length < maxMatchups; i++) {
     if (usedConnections.has(sortedConnections[i].id)) continue;
 
     const connA = sortedConnections[i];
@@ -348,13 +366,18 @@ export function generate1v1v1Matchups(
     let bestMatchB: Connection | null = null;
     let bestMatchC: Connection | null = null;
     let bestMaxDiff = Infinity;
+    
+    // Limit j and k search ranges for performance
+    const jEnd = Math.min(searchLimit - 1, i + 20);
 
-    for (let j = i + 1; j < sortedConnections.length - 1; j++) {
+    for (let j = i + 1; j < jEnd; j++) {
       if (usedConnections.has(sortedConnections[j].id)) continue;
       const connB = sortedConnections[j];
       const statsB = calculateSetMuSigma([connB]);
+      
+      const kEnd = Math.min(searchLimit, j + 15);
 
-      for (let k = j + 1; k < sortedConnections.length; k++) {
+      for (let k = j + 1; k < kEnd; k++) {
         if (usedConnections.has(sortedConnections[k].id)) continue;
         const connC = sortedConnections[k];
         const statsC = calculateSetMuSigma([connC]);
@@ -375,8 +398,12 @@ export function generate1v1v1Matchups(
           bestMaxDiff = maxDiff;
           bestMatchB = connB;
           bestMatchC = connC;
+          // Early exit if good enough
+          if (maxDiff < 0.1) break;
         }
       }
+      // Early exit if good enough
+      if (bestMaxDiff < 0.1) break;
     }
 
     if (bestMatchB && bestMatchC) {
@@ -434,11 +461,12 @@ export function generate1v1v1Matchups(
 
 /**
  * Generate 2v1v1 matchups (2 connections vs 1 vs 1, targeting 33/33/33)
+ * Heavily optimized - only generate a few due to O(n^4) complexity
  */
 export function generate2v1v1Matchups(
   connections: Connection[],
-  tolerance: number = 0.15,
-  maxMatchups: number = 10
+  tolerance: number = 0.20,
+  maxMatchups: number = 3
 ): Matchup[] {
   const matchups: Matchup[] = [];
   const usedConnections = new Set<string>();
@@ -447,11 +475,14 @@ export function generate2v1v1Matchups(
     return getConnectionMu(b) - getConnectionMu(a);
   });
 
-  for (let i = 0; i < sortedConnections.length - 3 && matchups.length < maxMatchups; i++) {
+  // Very limited search for performance
+  const searchLimit = Math.min(sortedConnections.length, 25);
+
+  for (let i = 0; i < Math.min(10, searchLimit - 3) && matchups.length < maxMatchups; i++) {
     if (usedConnections.has(sortedConnections[i].id)) continue;
 
-    // Set A will have 2 connections
-    for (let i2 = i + 1; i2 < sortedConnections.length - 2; i2++) {
+    // Only check nearby second member for set A
+    for (let i2 = i + 1; i2 < Math.min(i + 5, searchLimit - 2); i2++) {
       if (usedConnections.has(sortedConnections[i2].id)) continue;
 
       const setAConns = [sortedConnections[i], sortedConnections[i2]];
@@ -461,12 +492,13 @@ export function generate2v1v1Matchups(
       let bestMatchC: Connection | null = null;
       let bestMaxDiff = Infinity;
 
-      for (let j = i2 + 1; j < sortedConnections.length - 1; j++) {
+      // Limited search for B and C
+      for (let j = i2 + 1; j < Math.min(i2 + 8, searchLimit - 1); j++) {
         if (usedConnections.has(sortedConnections[j].id)) continue;
         const connB = sortedConnections[j];
         const statsB = calculateSetMuSigma([connB]);
 
-        for (let k = j + 1; k < sortedConnections.length; k++) {
+        for (let k = j + 1; k < Math.min(j + 6, searchLimit); k++) {
           if (usedConnections.has(sortedConnections[k].id)) continue;
           const connC = sortedConnections[k];
           const statsC = calculateSetMuSigma([connC]);
@@ -487,8 +519,10 @@ export function generate2v1v1Matchups(
             bestMaxDiff = maxDiff;
             bestMatchB = connB;
             bestMatchC = connC;
+            if (maxDiff < 0.1) break;
           }
         }
+        if (bestMaxDiff < 0.1) break;
       }
 
       if (bestMatchB && bestMatchC) {
