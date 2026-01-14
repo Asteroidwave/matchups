@@ -5,6 +5,7 @@ import { Matchup, Starter, Connection } from "@/types";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { setPoints } from "@/lib/scoring";
 import { useApp } from "@/contexts/AppContext";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface MatchupModalProps {
   readonly matchup: Matchup | null;
@@ -23,6 +24,10 @@ export function MatchupModal({
   const [selectedTrackA, setSelectedTrackA] = useState<Record<string, string | null>>({});
   const [selectedTrackB, setSelectedTrackB] = useState<Record<string, string | null>>({});
   const [selectedTrackC, setSelectedTrackC] = useState<Record<string, string | null>>({});
+  // Track which connection to show when a set has multiple connections
+  const [connectionIndexA, setConnectionIndexA] = useState(0);
+  const [connectionIndexB, setConnectionIndexB] = useState(0);
+  const [connectionIndexC, setConnectionIndexC] = useState(0);
   
   if (!matchup) return null;
   
@@ -192,42 +197,94 @@ export function MatchupModal({
     setPointsVal: number, 
     pointsPer1K: number,
     selectedTrackState: Record<string, string | null>,
-    setTrackFilter: (connId: string, track: string | null) => void
-  ) => (
-    <div className={`space-y-4 p-4 rounded-xl border-2 ${
-      selectedSet === setLabel 
-        ? "border-[var(--brand)] bg-[var(--blue-50)]" 
-        : "border-[var(--content-15)] bg-[var(--surface-1)]"
-    }`}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold text-[var(--text-primary)]">Set {setLabel}</h3>
-        {selectedSet === setLabel && (
-          <span className="bg-[var(--brand)] text-white px-3 py-1 rounded-full text-sm font-semibold">
-            Selected
-          </span>
-        )}
-      </div>
-      
-      {/* Summary Box */}
-      <div className="bg-[var(--surface-2)] rounded-lg p-2 text-center">
-        <div className="text-xl font-bold text-[var(--brand)] mb-2">
-          Total Points: {setPointsVal.toFixed(1)}
-        </div>
-        <div className="text-sm items-center text-center space-y-0.5">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-[var(--text-secondary)] w-[90px] text-right">Total Salary</span>
-            <span className="text-[var(--text-secondary)]">:</span>
-            <span className="font-semibold text-[var(--text-primary)] ml-1">${setSide.salaryTotal.toLocaleString()}</span>
+    setTrackFilter: (connId: string, track: string | null) => void,
+    connectionIndex: number,
+    setConnectionIndex: (idx: number) => void
+  ) => {
+    const totalConnections = setSide.connections.length;
+    const hasMultipleConnections = totalConnections > 1;
+    const canGoPrev = connectionIndex > 0;
+    const canGoNext = connectionIndex < totalConnections - 1;
+    
+    // Get only the current connection to display
+    const connectionsToShow = hasMultipleConnections 
+      ? [setSide.connections[connectionIndex]] 
+      : setSide.connections;
+    
+    return (
+      <div className={`space-y-4 p-4 rounded-xl border-2 ${
+        selectedSet === setLabel 
+          ? "border-[var(--brand)] bg-[var(--blue-50)]" 
+          : "border-[var(--content-15)] bg-[var(--surface-1)]"
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-bold text-[var(--text-primary)]">Set {setLabel}</h3>
+            {hasMultipleConnections && (
+              <span className="text-xs text-[var(--text-tertiary)]">
+                ({totalConnections} connections)
+              </span>
+            )}
           </div>
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-[var(--text-secondary)] w-[90px] text-right">Points/$1K</span>
-            <span className="text-[var(--text-secondary)]">:</span>
-            <span className="font-semibold text-[var(--text-primary)] ml-1">{pointsPer1K.toFixed(2)}</span>
+          <div className="flex items-center gap-2">
+            {/* Navigation arrows for multi-connection sets */}
+            {hasMultipleConnections && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setConnectionIndex(connectionIndex - 1)}
+                  disabled={!canGoPrev}
+                  className={`p-1 rounded transition-colors ${
+                    canGoPrev 
+                      ? 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]' 
+                      : 'text-[var(--text-muted)] cursor-not-allowed'
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs text-[var(--text-secondary)] min-w-[30px] text-center">
+                  {connectionIndex + 1}/{totalConnections}
+                </span>
+                <button
+                  onClick={() => setConnectionIndex(connectionIndex + 1)}
+                  disabled={!canGoNext}
+                  className={`p-1 rounded transition-colors ${
+                    canGoNext 
+                      ? 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]' 
+                      : 'text-[var(--text-muted)] cursor-not-allowed'
+                  }`}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {selectedSet === setLabel && (
+              <span className="bg-[var(--brand)] text-white px-3 py-1 rounded-full text-sm font-semibold">
+                Selected
+              </span>
+            )}
           </div>
         </div>
-      </div>
-      
-      {setSide.connections.map((conn) => {
+        
+        {/* Summary Box */}
+        <div className="bg-[var(--surface-2)] rounded-lg p-2 text-center">
+          <div className="text-xl font-bold text-[var(--brand)] mb-2">
+            Total Points: {setPointsVal.toFixed(1)}
+          </div>
+          <div className="text-sm items-center text-center space-y-0.5">
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-[var(--text-secondary)] w-[90px] text-right">Total Salary</span>
+              <span className="text-[var(--text-secondary)]">:</span>
+              <span className="font-semibold text-[var(--text-primary)] ml-1">${setSide.salaryTotal.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-[var(--text-secondary)] w-[90px] text-right">Points/$1K</span>
+              <span className="text-[var(--text-secondary)]">:</span>
+              <span className="font-semibold text-[var(--text-primary)] ml-1">{pointsPer1K.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+        
+        {connectionsToShow.map((conn) => {
         const tracks = getConnectionTracks(conn);
         const selectedTrack = selectedTrackState[conn.id] ?? null;
         const filteredStarters = getFilteredStarters(conn, selectedTrack);
@@ -366,8 +423,9 @@ export function MatchupModal({
           </div>
         );
       })}
-    </div>
-  );
+      </div>
+    );
+  };
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -383,13 +441,13 @@ export function MatchupModal({
         
         <div className={`grid gap-4 ${is3Way ? "grid-cols-3" : "grid-cols-2"}`}>
           {/* Set A */}
-          {renderSetPanel(matchup.setA, "A", setAPoints, setAPointsPer1K, selectedTrackA, setTrackFilterA)}
+          {renderSetPanel(matchup.setA, "A", setAPoints, setAPointsPer1K, selectedTrackA, setTrackFilterA, connectionIndexA, setConnectionIndexA)}
           
           {/* Set B */}
-          {renderSetPanel(matchup.setB, "B", setBPoints, setBPointsPer1K, selectedTrackB, setTrackFilterB)}
+          {renderSetPanel(matchup.setB, "B", setBPoints, setBPointsPer1K, selectedTrackB, setTrackFilterB, connectionIndexB, setConnectionIndexB)}
           
           {/* Set C (only for 3-way) */}
-          {is3Way && matchup.setC && renderSetPanel(matchup.setC, "C", setCPoints, setCPointsPer1K, selectedTrackC, setTrackFilterC)}
+          {is3Way && matchup.setC && renderSetPanel(matchup.setC, "C", setCPoints, setCPointsPer1K, selectedTrackC, setTrackFilterC, connectionIndexC, setConnectionIndexC)}
         </div>
       </DialogContent>
     </Dialog>

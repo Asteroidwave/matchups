@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Matchup, Connection, Starter } from "@/types";
+import React, { useState, useRef, useEffect } from "react";
+import { Matchup, Connection, Starter, PastPerformanceEntry } from "@/types";
 import { Dialog } from "@/components/ui/dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { getConnectionHistory } from "@/lib/parseJson";
 
 interface ComparisonModalProps {
   matchup: Matchup | null;
@@ -17,14 +18,69 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   const [activeTabSetA, setActiveTabSetA] = useState<"connected" | "past">("connected");
   const [activeTabSetB, setActiveTabSetB] = useState<"connected" | "past">("connected");
   const [activeTabSetC, setActiveTabSetC] = useState<"connected" | "past">("connected");
-  const { connections: allConnections } = useApp();
+  // Track which connection index is being viewed for each set (for multi-connection sets)
+  const [connectionIndexA, setConnectionIndexA] = useState(0);
+  const [connectionIndexB, setConnectionIndexB] = useState(0);
+  const [connectionIndexC, setConnectionIndexC] = useState(0);
+  // Past performance data and loading state for each set
+  const [pastPerfA, setPastPerfA] = useState<PastPerformanceEntry[]>([]);
+  const [pastPerfB, setPastPerfB] = useState<PastPerformanceEntry[]>([]);
+  const [pastPerfC, setPastPerfC] = useState<PastPerformanceEntry[]>([]);
+  const [isLoadingA, setIsLoadingA] = useState(false);
+  const [isLoadingB, setIsLoadingB] = useState(false);
+  const [isLoadingC, setIsLoadingC] = useState(false);
+  // Expanded rows for past performance
+  const [expandedRowsA, setExpandedRowsA] = useState<Set<string>>(new Set());
+  const [expandedRowsB, setExpandedRowsB] = useState<Set<string>>(new Set());
+  const [expandedRowsC, setExpandedRowsC] = useState<Set<string>>(new Set());
+  
+  const { connections: allConnections, selectedTracks } = useApp();
   const scrollRefA = useRef<HTMLDivElement>(null);
   const scrollRefB = useRef<HTMLDivElement>(null);
   const scrollRefC = useRef<HTMLDivElement>(null);
+  
+  // Load past performance when tab is switched to "past"
+  useEffect(() => {
+    if (activeTabSetA === "past" && matchup?.setA?.connections?.[connectionIndexA] && isOpen) {
+      const conn = matchup.setA.connections[connectionIndexA];
+      setIsLoadingA(true);
+      getConnectionHistory(conn.name, conn.role, selectedTracks[0] || 'AQU', 10)
+        .then(setPastPerfA)
+        .catch(() => setPastPerfA([]))
+        .finally(() => setIsLoadingA(false));
+    }
+  }, [activeTabSetA, connectionIndexA, matchup?.setA?.connections, isOpen, selectedTracks]);
+  
+  useEffect(() => {
+    if (activeTabSetB === "past" && matchup?.setB?.connections?.[connectionIndexB] && isOpen) {
+      const conn = matchup.setB.connections[connectionIndexB];
+      setIsLoadingB(true);
+      getConnectionHistory(conn.name, conn.role, selectedTracks[0] || 'AQU', 10)
+        .then(setPastPerfB)
+        .catch(() => setPastPerfB([]))
+        .finally(() => setIsLoadingB(false));
+    }
+  }, [activeTabSetB, connectionIndexB, matchup?.setB?.connections, isOpen, selectedTracks]);
+  
+  useEffect(() => {
+    if (activeTabSetC === "past" && matchup?.setC?.connections?.[connectionIndexC] && isOpen) {
+      const conn = matchup.setC.connections[connectionIndexC];
+      setIsLoadingC(true);
+      getConnectionHistory(conn.name, conn.role, selectedTracks[0] || 'AQU', 10)
+        .then(setPastPerfC)
+        .catch(() => setPastPerfC([]))
+        .finally(() => setIsLoadingC(false));
+    }
+  }, [activeTabSetC, connectionIndexC, matchup?.setC?.connections, isOpen, selectedTracks]);
 
   if (!matchup || !isOpen) return null;
   
   const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
+  
+  // Get connection counts for each set
+  const setACount = matchup.setA?.connections?.length || 0;
+  const setBCount = matchup.setB?.connections?.length || 0;
+  const setCCount = matchup.setC?.connections?.length || 0;
 
   // Render a single connection modal (same structure as ConnectionModal)
   
@@ -32,18 +88,30 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     connection: Connection,
     activeTab: "connected" | "past",
     setActiveTab: (tab: "connected" | "past") => void,
-    setId: "A" | "B" | "C" = "A"
+    setId: "A" | "B" | "C" = "A",
+    connectionIndex: number = 0,
+    totalConnections: number = 1,
+    onPrevConnection?: () => void,
+    onNextConnection?: () => void,
+    pastPerformance: PastPerformanceEntry[] = [],
+    isLoadingPP: boolean = false,
+    expandedRows: Set<string> = new Set(),
+    toggleExpandedRow?: (key: string) => void
   ) => {
     const scrollRef = setId === "A" ? scrollRefA : setId === "B" ? scrollRefB : scrollRefC;
     
     // For 3-way matchups, use wider modals to prevent salary cutoff
-    const modalWidth = is3Way ? "w-[520px]" : "w-[640px]";
+    const modalWidth = is3Way ? "w-[560px]" : "w-[640px]";
     // Background color for the header based on role (single color)
     const headerBg = {
       jockey: "bg-blue-600",
       trainer: "bg-green-600",
       sire: "bg-amber-600",
     }[connection.role];
+    
+    const hasMultipleConnections = totalConnections > 1;
+    const canGoPrev = connectionIndex > 0;
+    const canGoNext = connectionIndex < totalConnections - 1;
 
     // Track full names mapping
     const trackFullName: Record<string, string> = {
@@ -125,49 +193,74 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '75vh', height: '75vh', pointerEvents: 'auto' }}>
-        {/* Header - Single color design with overlapping circle */}
-        <div className={`relative ${is3Way ? 'h-[140px]' : 'h-[162px]'} ${headerBg} text-white flex-shrink-0`}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '80vh', height: '80vh', pointerEvents: 'auto' }}>
+        {/* Header - Compact design for 3-way */}
+        <div className={`relative ${is3Way ? 'h-[120px]' : 'h-[140px]'} ${headerBg} text-white flex-shrink-0`}>
           <button
             onClick={onClose}
-            className="absolute top-5 right-4 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
+            className="absolute top-3 right-3 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
           
-          {/* Name and role section */}
-          <div className="pt-[44px] px-6 pb-4">
-            <div className="pl-[172px] flex items-center gap-3 h-[28px]">
-              <h2 className="text-[20px] font-semibold leading-[28px]">{connection.name}</h2>
-              <div className="text-[14px] font-medium leading-[20px] text-white/80">{connection.role.toUpperCase()}</div>
+          {/* Navigation arrows for multi-connection sets */}
+          {hasMultipleConnections && (
+            <div className="absolute top-3 left-3 flex items-center gap-1 z-10">
+              <button
+                onClick={onPrevConnection}
+                disabled={!canGoPrev}
+                className={`p-1 rounded-full transition-colors ${canGoPrev ? 'hover:bg-white/20 text-white' : 'text-white/30 cursor-not-allowed'}`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-white/80">{connectionIndex + 1}/{totalConnections}</span>
+              <button
+                onClick={onNextConnection}
+                disabled={!canGoNext}
+                className={`p-1 rounded-full transition-colors ${canGoNext ? 'hover:bg-white/20 text-white' : 'text-white/30 cursor-not-allowed'}`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          )}
           
-          {/* Stats section */}
-          <div className="px-6 pb-5 pt-4">
-            <div className="pl-[172px] flex items-end gap-[34px] h-full pb-4">
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{connection.avgOdds.toFixed(2)}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVG. ODDS</div>
+          {/* Compact header layout */}
+          <div className={`flex items-start ${is3Way ? 'pt-3 px-3' : 'pt-4 px-4'}`}>
+            {/* Circle avatar */}
+            <div className={`${is3Way ? 'w-[70px] h-[70px] text-[36px]' : 'w-[80px] h-[80px] text-[42px]'} rounded-full bg-[var(--content-15)] flex items-center justify-center font-semibold text-[var(--content-9)] flex-shrink-0`}>
+              {connection.name.charAt(0)}
+            </div>
+            
+            {/* Name and Stats */}
+            <div className={`flex-1 ${is3Way ? 'ml-3' : 'ml-4'}`}>
+              {/* Name and role */}
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className={`${is3Way ? 'text-[16px]' : 'text-[18px]'} font-semibold leading-tight truncate`}>{connection.name}</h2>
+                <span className={`${is3Way ? 'text-[10px]' : 'text-[11px]'} font-medium text-white/80 bg-white/20 px-1.5 py-0.5 rounded`}>
+                  {connection.role.toUpperCase()}
+                </span>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{String(connection.apps).padStart(2, '0')}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">APPEARANCES</div>
-              </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVPA</div>
-              </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">SALARY</div>
+              
+              {/* Stats row - compact */}
+              <div className={`grid ${is3Way ? 'grid-cols-4 gap-2' : 'grid-cols-4 gap-3'}`}>
+                <div>
+                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{connection.avgOdds.toFixed(2)}</div>
+                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>AVG ODDS</div>
+                </div>
+                <div>
+                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{String(connection.apps).padStart(2, '0')}</div>
+                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>APPS</div>
+                </div>
+                <div>
+                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{connection.avpa30d.toFixed(2)}</div>
+                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>AVPA</div>
+                </div>
+                <div>
+                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>${connection.salarySum.toLocaleString()}</div>
+                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>SALARY</div>
+                </div>
               </div>
             </div>
-          </div>
-          
-          {/* Circle avatar overlapping header */}
-          <div className="absolute left-[34px] top-[34px] w-[108px] h-[108px] rounded-full bg-[var(--content-15)] flex items-center justify-center text-[64px] font-semibold leading-normal text-[var(--content-9)] z-20">
-            {connection.name.charAt(0)}
           </div>
         </div>
         
@@ -337,50 +430,115 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           
           {activeTab === "past" && (
             <div style={{ width: '100%' }}>
-              <table className="w-full">
-                <thead className="sticky top-0 bg-white border-b border-[var(--content-15)] z-10">
-                  <tr>
-                    <th className="text-left px-5 py-2 font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">
-                      Race
-                    </th>
-                    <th className="text-left px-5 py-2 font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">
-                      Horse
-                    </th>
-                    <th className="text-left px-5 py-2 font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">
-                      Finish Position
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {races.map(([key, starters]) => {
-                    const [track, raceNum] = key.split("-");
-                    const trackName = trackFullName[track] || track;
-                    
-                    return (
-                      <React.Fragment key={key}>
-                        <tr className="bg-[var(--content-15)]">
-                          <td colSpan={3} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                            October 3, 2025, {trackName}, Race {raceNum}
-                          </td>
-                        </tr>
-                        {starters.map((starter, idx) => (
-                          <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                            <td className="px-5 py-3 text-[14px] text-[var(--text-primary)]">
-                              {track} R{raceNum}
-                            </td>
-                            <td className="px-5 py-3 text-[14px] font-medium text-[var(--text-primary)]">
-                              {starter.horseName}
-                            </td>
-                            <td className="px-5 py-3 text-[14px] text-[var(--text-primary)]">
-                              {starter.pos || "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+              {isLoadingPP ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-[var(--brand)]" />
+                  <span className="ml-2 text-sm text-[var(--text-secondary)]">Loading...</span>
+                </div>
+              ) : pastPerformance.length === 0 ? (
+                <div className="text-center py-8 text-[var(--text-secondary)] text-sm">
+                  No past performance data available
+                </div>
+              ) : (
+                <>
+                  {/* Header */}
+                  <div className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10 px-3 py-2">
+                    <div className="grid grid-cols-12 gap-1 text-[10px] font-medium text-[var(--text-tertiary)]">
+                      <div className="col-span-5">Race Day</div>
+                      <div className="col-span-2 text-right">Salary</div>
+                      <div className="col-span-2 text-right">Apps</div>
+                      <div className="col-span-3 text-right">AVPA</div>
+                    </div>
+                  </div>
+                  
+                  {/* Collapsible rows */}
+                  <div className="divide-y divide-[var(--content-15)]">
+                    {(() => {
+                      // Group by date + track
+                      const grouped = new Map<string, PastPerformanceEntry[]>();
+                      pastPerformance.forEach((entry) => {
+                        const key = `${entry.date}|${entry.track}`;
+                        if (!grouped.has(key)) grouped.set(key, []);
+                        grouped.get(key)!.push(entry);
+                      });
+                      
+                      return Array.from(grouped.entries()).map(([key, ppEntries]) => {
+                        const [date, track] = key.split('|');
+                        const trackName = trackFullName[track] || track;
+                        const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        });
+                        
+                        const totalSalary = ppEntries.reduce((sum, r) => sum + (r.salary || 0), 0);
+                        const appearances = ppEntries.length;
+                        const avgAVPA = ppEntries.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
+                        const isExpanded = expandedRows.has(key);
+                        
+                        return (
+                          <div key={key}>
+                            <button
+                              onClick={() => toggleExpandedRow?.(key)}
+                              className="w-full px-3 py-2 hover:bg-[var(--surface-2)] transition-colors text-left"
+                            >
+                              <div className="grid grid-cols-12 gap-1 items-center text-[12px]">
+                                <div className="col-span-5 flex items-center gap-1">
+                                  {isExpanded ? (
+                                    <ChevronDown className="w-3 h-3 text-[var(--text-tertiary)]" />
+                                  ) : (
+                                    <ChevronRight className="w-3 h-3 text-[var(--text-tertiary)]" />
+                                  )}
+                                  <span className="font-medium text-[var(--text-primary)] truncate">{formattedDate}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold text-[var(--track)] bg-[var(--track-bg)]`}>
+                                    {track}
+                                  </span>
+                                </div>
+                                <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                                  ${totalSalary.toLocaleString()}
+                                </div>
+                                <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                                  {appearances}
+                                </div>
+                                <div className="col-span-3 text-right font-semibold text-[var(--text-primary)]">
+                                  {avgAVPA.toFixed(1)}
+                                </div>
+                              </div>
+                            </button>
+                            
+                            {isExpanded && (
+                              <div className="bg-[var(--surface-2)] px-3 py-1">
+                                {ppEntries.map((entry, idx) => (
+                                  <div key={idx} className="grid grid-cols-12 gap-1 py-1.5 border-b border-[var(--content-15)] last:border-0 text-[11px]">
+                                    <div className="col-span-5 flex items-center gap-1">
+                                      <span className="text-[var(--text-tertiary)]">{track} R{entry.race}</span>
+                                      <span className="font-medium text-[var(--text-primary)] truncate">{entry.horseName}</span>
+                                    </div>
+                                    <div className="col-span-2 text-right text-[var(--text-secondary)]">
+                                      ${(entry.salary || 0).toLocaleString()}
+                                    </div>
+                                    <div className="col-span-2 text-right">
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                                        entry.position === 1 ? 'bg-green-100 text-green-800' :
+                                        entry.position === 2 ? 'bg-blue-100 text-blue-800' :
+                                        entry.position === 3 ? 'bg-red-100 text-red-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {entry.position || '—'}
+                                      </span>
+                                    </div>
+                                    <div className="col-span-3 text-right text-[var(--text-secondary)]">
+                                      {(entry.totalPoints || 0).toFixed(1)} pts
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -395,15 +553,28 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 pointer-events-auto" onClick={onClose} />
         
         {/* Modal Container - Side by side with minimal gap */}
-        <div className={`relative z-50 flex items-start justify-center gap-2 pointer-events-none pt-4 pb-4 ${is3Way ? 'px-2' : ''}`}>
+        <div className={`relative z-50 flex items-start justify-center gap-2 pointer-events-none pt-2 pb-2 ${is3Way ? 'px-2' : ''}`}>
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
             <div className="pointer-events-auto">
               {renderConnectionModal(
-                matchup.setA.connections[0],
+                matchup.setA.connections[connectionIndexA] || matchup.setA.connections[0],
                 activeTabSetA,
                 setActiveTabSetA,
-                "A"
+                "A",
+                connectionIndexA,
+                setACount,
+                () => setConnectionIndexA(prev => Math.max(0, prev - 1)),
+                () => setConnectionIndexA(prev => Math.min(setACount - 1, prev + 1)),
+                pastPerfA,
+                isLoadingA,
+                expandedRowsA,
+                (key) => setExpandedRowsA(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
               )}
             </div>
           ) : null}
@@ -412,10 +583,23 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           {matchup?.setB?.connections?.length > 0 ? (
             <div className="pointer-events-auto">
               {renderConnectionModal(
-                matchup.setB.connections[0],
+                matchup.setB.connections[connectionIndexB] || matchup.setB.connections[0],
                 activeTabSetB,
                 setActiveTabSetB,
-                "B"
+                "B",
+                connectionIndexB,
+                setBCount,
+                () => setConnectionIndexB(prev => Math.max(0, prev - 1)),
+                () => setConnectionIndexB(prev => Math.min(setBCount - 1, prev + 1)),
+                pastPerfB,
+                isLoadingB,
+                expandedRowsB,
+                (key) => setExpandedRowsB(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
               )}
             </div>
           ) : null}
@@ -424,10 +608,23 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           {is3Way && matchup?.setC?.connections?.length > 0 ? (
             <div className="pointer-events-auto">
               {renderConnectionModal(
-                matchup.setC.connections[0],
+                matchup.setC.connections[connectionIndexC] || matchup.setC.connections[0],
                 activeTabSetC,
                 setActiveTabSetC,
-                "C"
+                "C",
+                connectionIndexC,
+                setCCount,
+                () => setConnectionIndexC(prev => Math.max(0, prev - 1)),
+                () => setConnectionIndexC(prev => Math.min(setCCount - 1, prev + 1)),
+                pastPerfC,
+                isLoadingC,
+                expandedRowsC,
+                (key) => setExpandedRowsC(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) next.delete(key);
+                  else next.add(key);
+                  return next;
+                })
               )}
             </div>
           ) : null}
