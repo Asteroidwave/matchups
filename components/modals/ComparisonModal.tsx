@@ -193,7 +193,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '80vh', height: '80vh', pointerEvents: 'auto' }}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '85vh', pointerEvents: 'auto' }}>
         {/* Header - Matching ConnectionModal style */}
         <div className={`relative h-[140px] ${headerBg} text-white flex-shrink-0 rounded-t-lg`}>
           <button
@@ -292,26 +292,13 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
         </div>
         
-        {/* Content - Fixed height to prevent jumping - exact same pattern as ConnectionModal */}
+        {/* Content - Flex grow to fill remaining space */}
         <div 
           ref={scrollRef}
-          className="overflow-y-auto" 
+          className="flex-1 overflow-y-auto min-h-0" 
           style={{ 
-            height: '350px',
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain',
-            position: 'relative',
-            touchAction: 'pan-y',
-            pointerEvents: 'auto',
-            isolation: 'isolate'
-          }}
-          onWheel={(e) => {
-            if (scrollRef.current) {
-              e.stopPropagation();
-              const delta = e.deltaY;
-              scrollRef.current.scrollTop += delta;
-              e.preventDefault();
-            }
+            overscrollBehavior: 'contain'
           }}
         >
           {activeTab === "connected" && (
@@ -526,16 +513,16 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                       {entry.race}
                                     </div>
                                     <div className="col-span-5 flex items-center gap-2">
-                                      <span className="font-medium text-[var(--text-primary)]">{entry.horseName}</span>
+                                      <span className="font-medium text-[var(--text-primary)]">{entry.horse}</span>
                                     </div>
                                     <div className="col-span-3 text-right">
                                       <span className={`inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded text-[11px] font-semibold ${
-                                        entry.position === 1 ? 'bg-green-100 text-green-800' :
-                                        entry.position === 2 ? 'bg-blue-100 text-blue-800' :
-                                        entry.position === 3 ? 'bg-red-100 text-red-800' :
+                                        entry.finish === 1 ? 'bg-green-100 text-green-800' :
+                                        entry.finish === 2 ? 'bg-blue-100 text-blue-800' :
+                                        entry.finish === 3 ? 'bg-red-100 text-red-800' :
                                         'bg-gray-100 text-gray-800'
                                       }`}>
-                                        {entry.position ? `${entry.position}${entry.position === 1 ? 'st' : entry.position === 2 ? 'nd' : entry.position === 3 ? 'rd' : 'th'}` : '—'}
+                                        {entry.finish ? `${entry.finish}${entry.finish === 1 ? 'st' : entry.finish === 2 ? 'nd' : entry.finish === 3 ? 'rd' : 'th'}` : '—'}
                                       </span>
                                     </div>
                                     <div className="col-span-3 text-right font-medium text-[var(--text-primary)]">

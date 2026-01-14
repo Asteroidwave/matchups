@@ -501,16 +501,16 @@ export default function MatchupsPage() {
                   selectedPicks.map((pick) => (
                     <div
                       key={pick!.matchupId}
-                      className="bg-[var(--surface-2)] rounded-lg p-2 border border-[var(--brand)]/40 shadow-sm relative"
+                      className="bg-[var(--surface-2)] rounded-lg p-3 border border-[var(--brand)] shadow-sm relative"
                     >
                       <button
                         onClick={() => removePick(pick!.matchupId)}
-                        className="absolute top-1.5 right-1.5 text-gray-400 hover:text-gray-600"
+                        className="absolute top-2 right-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-4 h-4" />
                       </button>
-                      <div className="text-xs text-gray-500 mb-0.5">Set {pick!.chosen}</div>
-                      <div className="font-semibold text-xs text-gray-900 pr-6">
+                      <div className="text-xs font-medium text-[var(--brand)] mb-1">Set {pick!.chosen}</div>
+                      <div className="font-semibold text-sm text-[var(--text-primary)] pr-6">
                         {pick!.names.join(", ")}
                       </div>
                     </div>
