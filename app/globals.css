@@ -2,30 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Figma tokens mapped to CSS variables */
+/* Beat the House inspired theme - sophisticated racing aesthetic */
 :root {
-  --text-primary: #080F17;
-  --text-secondary: #3c5066;
-  --text-tertiary: #3c5066;
-  --blue-50: #E6F0FF;
-  --brand: #094AAC;
-  --brand-light: #E6F0FF;
-  --content-15: #DFE0E2;
-  --content-16: #E7E8E9;
-  --content-9: #677a8f;
-  --btn-link: #0065FF;
-  --btn-default: #080F17;
-  --surface-3: #DFE0E2;
-  --chip-outline: #DFE0E2;
-  --surface-1: #FFFFFF;
-  --surface-2: #F8F9FA;
-  --surface-elevated: #f1f5f9;
+  /* Background surfaces */
+  --background: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-elevated: #f8fafc;
   --surface-hover: #e2e8f0;
+  --border: #cbd5e1;
   
-  /* Connection colors */
-  --jockey: #4b8bff;
-  --trainer: #34d399;
-  --sire: #f5a524;
+  /* Text colors */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
+  --text-muted: #94a3b8;
+  
+  /* Brand colors */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --brand: #2563eb;
+  --brand-light: #dbeafe;
+  
+  /* Legacy mappings */
+  --blue-50: #dbeafe;
+  --content-15: #e2e8f0;
+  --content-16: #f1f5f9;
+  --content-9: #64748b;
+  --btn-link: #2563eb;
+  --btn-default: #0f172a;
+  --surface-3: #e2e8f0;
+  --chip-outline: #cbd5e1;
+  
+  /* Connection colors - Jockey (blue), Trainer (green), Sire (amber) */
+  --jockey: #2563eb;
+  --trainer: #16a34a;
+  --sire: #d97706;
+  
+  /* Track badge color - distinct from connections */
+  --track: #8b5cf6;
+  --track-bg: #ede9fe;
   
   /* Status colors */
   --success: #16a34a;
@@ -35,39 +51,56 @@
   /* Calendar colors */
   --calendar-race-day: #3B82F6;
   --calendar-selected: #EF4444;
-  --calendar-hover: #E6F0FF;
+  --calendar-hover: #dbeafe;
 }
 
 /* Dark mode - Beat the House sophisticated racing aesthetic */
 .dark {
-  --text-primary: #e7edf5;
-  --text-secondary: #a3afc2;
-  --text-tertiary: #7b8aa5;
-  --blue-50: #1b2330;
-  --brand: #4b8ff9;
-  --brand-light: #1b2330;
-  --content-15: #1f2733;
-  --content-16: #243041;
+  /* Background surfaces */
+  --background: #0a0e14;
+  --surface-1: #121820;
+  --surface-2: #1a222d;
+  --surface-elevated: #1a222d;
+  --surface-hover: #232d3b;
+  --border: #2a3544;
+  
+  /* Text colors */
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-muted: #475569;
+  
+  /* Brand colors */
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --brand: #3b82f6;
+  --brand-light: #1e3a5f;
+  
+  /* Legacy mappings */
+  --blue-50: #1e3a5f;
+  --content-15: #1a222d;
+  --content-16: #232d3b;
   --content-9: #94a3b8;
-  --btn-link: #4b8ff9;
-  --btn-default: #4b8ff9;
-  --surface-3: #243041;
-  --chip-outline: #243041;
-  --surface-1: #0f151f;
-  --surface-2: #131c29;
-  --surface-elevated: #1a2333;
-  --surface-hover: #1f2938;
+  --btn-link: #3b82f6;
+  --btn-default: #3b82f6;
+  --surface-3: #232d3b;
+  --chip-outline: #2a3544;
   
   /* Connection colors */
   --jockey: #3b82f6;
   --trainer: #22c55e;
   --sire: #f59e0b;
   
+  /* Track badge color - distinct purple that pops in dark mode */
+  --track: #a78bfa;
+  --track-bg: #2e1065;
+  
   /* Status colors */
   --success: #22c55e;
   --warning: #f59e0b;
   --error: #ef4444;
   
+  /* Calendar colors */
   --calendar-race-day: #3B82F6;
   --calendar-selected: #EF4444;
   --calendar-hover: #1a222d;
@@ -174,4 +207,109 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom scrollbar - Beat the House style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Panel styles - self-contained cards */
+.panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  height: 100%;
+}
+
+.panel-header {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Connection badge colors */
+.badge-jockey {
+  background-color: var(--jockey);
+  color: white;
+}
+
+.badge-trainer {
+  background-color: var(--trainer);
+  color: white;
+}
+
+.badge-sire {
+  background-color: var(--sire);
+  color: white;
+}
+
+/* Track badge - distinct from connection badges */
+.badge-track {
+  background-color: var(--track-bg);
+  color: var(--track);
+  border: 1px solid var(--track);
+}
+
+/* Filter chip with highlight colors */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+.filter-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Highlight colors for multi-select filtering */
+.highlight-blue { background: rgba(59, 130, 246, 0.15); border-left: 2px solid #3b82f6; }
+.highlight-green { background: rgba(34, 197, 94, 0.15); border-left: 2px solid #22c55e; }
+.highlight-amber { background: rgba(245, 158, 11, 0.15); border-left: 2px solid #f59e0b; }
+.highlight-pink { background: rgba(236, 72, 153, 0.15); border-left: 2px solid #ec4899; }
+.highlight-purple { background: rgba(168, 85, 247, 0.15); border-left: 2px solid #a855f7; }
+.highlight-cyan { background: rgba(6, 182, 212, 0.15); border-left: 2px solid #06b6d4; }
+
+/* Animations */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  50% { box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.2); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Focus states */
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

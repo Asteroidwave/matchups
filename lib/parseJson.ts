@@ -368,8 +368,11 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       };
     });
 
-    // Get connection-level stats from the Jockey Stats sheet (has 30d AVPA, etc.)
+    // Get connection-level stats from the Jockey Stats sheet (has 30d, 90d AVPA, etc.)
     const connStats = data.jockeyStats?.find(j => j.name === jockeyName);
+    
+    // Use 90d AVPA as default (user requirement), fallback to 30d, then overall
+    const avpa90d = connStats?.avpa90d || connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length);
 
     connections.push({
       id,
@@ -380,7 +383,7 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
+      avpa30d: avpa90d,  // NOTE: This field is named 30d but we're using 90d as default
       avpaRace: totalPoints / horses.length,
       starters,
       mu: connStats?.mu || totalMu,
@@ -435,6 +438,9 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
 
     // Get connection-level stats from the Trainer Stats sheet
     const connStats = data.trainerStats?.find(t => t.name === trainerName);
+    
+    // Use 90d AVPA as default
+    const avpa90d = connStats?.avpa90d || connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length);
 
     connections.push({
       id,
@@ -445,7 +451,7 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
+      avpa30d: avpa90d,  // Using 90d AVPA as default
       avpaRace: totalPoints / horses.length,
       starters,
       mu: connStats?.mu || totalMu,
@@ -505,6 +511,9 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
 
     // Get connection-level stats from the Sire Stats sheet
     const connStats = data.sireStats?.find(s => s.name === sireName);
+    
+    // Use 90d AVPA as default
+    const avpa90d = connStats?.avpa90d || connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length);
 
     connections.push({
       id,
@@ -515,7 +524,7 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
       avgOdds: connStats?.avgOdds || horses.reduce((sum, h) => sum + (h.mlOddsDecimal || 0), 0) / horses.length,
       salarySum: totalSalary,
       pointsSum: totalPoints,
-      avpa30d: connStats?.avpa30d || connStats?.avpa || (totalPoints / horses.length),
+      avpa30d: avpa90d,  // Using 90d AVPA as default
       avpaRace: totalPoints / horses.length,
       starters,
       mu: connStats?.mu || totalMu,

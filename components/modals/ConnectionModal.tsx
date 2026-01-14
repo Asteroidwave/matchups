@@ -5,7 +5,7 @@ import { Connection, Starter, PastPerformanceEntry } from "@/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { X, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { getConnectionHistory } from "@/lib/parseExcel";
+import { getConnectionHistory } from "@/lib/parseJson";
 
 interface ConnectionModalProps {
   connection: Connection | null;
@@ -58,10 +58,10 @@ function PastPerformanceTab({
     );
   }
   
-  // Group by date + track
+  // Group by date + track (using a separator that won't conflict with date format)
   const grouped = new Map<string, PastPerformanceEntry[]>();
   pastPerformance.forEach((entry) => {
-    const key = `${entry.date}-${entry.track}`;
+    const key = `${entry.date}|${entry.track}`;
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
@@ -86,9 +86,9 @@ function PastPerformanceTab({
       {/* Collapsible rows */}
       <div className="divide-y divide-[var(--content-15)]">
         {entries.map(([key, races]) => {
-          const [date, track] = key.split('-');
+          const [date, track] = key.split('|');
           const trackName = trackFullName[track] || track;
-          const formattedDate = new Date(date).toLocaleDateString('en-US', {
+          const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
             year: 'numeric'

@@ -143,22 +143,40 @@ function getConnectionMu(conn: Connection): number {
 }
 
 /**
- * Generate balanced 1v1 matchups (targeting 50/50)
+ * Calculate a combined score for matchup quality
+ * Considers both probability balance AND salary balance
+ */
+function calculateMatchQuality(
+  probDiff: number,      // Distance from 0.5 (for 2-way) or 0.333 (for 3-way)
+  salaryDiff: number,    // Absolute salary difference
+  maxSalary: number      // For normalization
+): number {
+  // Normalize salary difference to 0-1 range
+  const normalizedSalaryDiff = salaryDiff / Math.max(maxSalary, 1);
+  
+  // Weight: 60% probability balance, 40% salary balance
+  // Lower score = better match
+  return probDiff * 0.6 + normalizedSalaryDiff * 0.4;
+}
+
+/**
+ * Generate balanced 1v1 matchups (targeting 50/50 with similar salaries)
  */
 export function generate1v1Matchups(
   connections: Connection[],
-  tolerance: number = 0.1,  // Allow 40-60 range
-  maxMatchups: number = 50
+  tolerance: number = 0.15,  // Allow 35-65 range for probability
+  maxMatchups: number = 50,
+  maxSalaryDiff: number = 2000  // Max salary difference allowed
 ): Matchup[] {
   const matchups: Matchup[] = [];
   const usedConnections = new Set<string>();
 
-  // Sort connections by their MU for better pairing
+  // Sort connections by salary for better pairing (similar salaries grouped together)
   const sortedConnections = [...connections].sort((a, b) => {
-    return getConnectionMu(b) - getConnectionMu(a);
+    return (b.salarySum || 0) - (a.salarySum || 0);
   });
 
-  // Limit search to first N connections for performance
+  const maxSalary = Math.max(...sortedConnections.map(c => c.salarySum || 0));
   const searchLimit = Math.min(sortedConnections.length, 100);
 
   for (let i = 0; i < searchLimit && matchups.length < maxMatchups; i++) {
@@ -166,30 +184,39 @@ export function generate1v1Matchups(
 
     const connA = sortedConnections[i];
     const statsA = calculateSetMuSigma([connA]);
+    const salaryA = connA.salarySum || 0;
 
-    // Find best matching opponent - limit search range for performance
     let bestMatch: Connection | null = null;
-    let bestProbDiff = Infinity;
+    let bestQuality = Infinity;
     
-    const searchEnd = Math.min(searchLimit, i + 30); // Only search nearby connections
+    const searchEnd = Math.min(searchLimit, i + 40);
 
     for (let j = i + 1; j < searchEnd; j++) {
       if (usedConnections.has(sortedConnections[j].id)) continue;
 
       const connB = sortedConnections[j];
-      const statsB = calculateSetMuSigma([connB]);
+      const salaryB = connB.salarySum || 0;
+      const salaryDiff = Math.abs(salaryA - salaryB);
+      
+      // Skip if salary difference is too large
+      if (salaryDiff > maxSalaryDiff) continue;
 
+      const statsB = calculateSetMuSigma([connB]);
       const probA = calculateHeadToHeadProbability(
         statsA.mu, statsA.sigma,
         statsB.mu, statsB.sigma
       );
 
-      const diff = Math.abs(probA - 0.5);
-      if (diff < bestProbDiff && diff <= tolerance) {
-        bestProbDiff = diff;
+      const probDiff = Math.abs(probA - 0.5);
+      if (probDiff > tolerance) continue;
+
+      const quality = calculateMatchQuality(probDiff, salaryDiff, maxSalary);
+      
+      if (quality < bestQuality) {
+        bestQuality = quality;
         bestMatch = connB;
-        // Early exit if we found a good match
-        if (diff < 0.05) break;
+        // Early exit if we found an excellent match
+        if (probDiff < 0.05 && salaryDiff < 500) break;
       }
     }
 
@@ -337,23 +364,24 @@ export function generate2v1Matchups(
 }
 
 /**
- * Generate balanced 1v1v1 matchups (targeting 33/33/33)
+ * Generate balanced 1v1v1 matchups (targeting 33/33/33 with similar salaries)
  * Optimized to limit search space for performance
  */
 export function generate1v1v1Matchups(
   connections: Connection[],
-  tolerance: number = 0.25,  // More permissive to actually generate matchups
-  maxMatchups: number = 20
+  tolerance: number = 0.2,  // Allow deviation from 33%
+  maxMatchups: number = 20,
+  maxSalaryDiff: number = 2500  // Max salary spread across all 3 sets
 ): Matchup[] {
   const matchups: Matchup[] = [];
   const usedConnections = new Set<string>();
 
-  // Sort by MU
+  // Sort by salary for better grouping
   const sortedConnections = [...connections].sort((a, b) => {
-    return getConnectionMu(b) - getConnectionMu(a);
+    return (b.salarySum || 0) - (a.salarySum || 0);
   });
 
-  // Limit search to first N connections for performance
+  const maxSalary = Math.max(...sortedConnections.map(c => c.salarySum || 0));
   const searchLimit = Math.min(sortedConnections.length, 60);
 
   for (let i = 0; i < searchLimit - 2 && matchups.length < maxMatchups; i++) {
@@ -361,25 +389,34 @@ export function generate1v1v1Matchups(
 
     const connA = sortedConnections[i];
     const statsA = calculateSetMuSigma([connA]);
+    const salaryA = connA.salarySum || 0;
 
-    // Find best two matching opponents
     let bestMatchB: Connection | null = null;
     let bestMatchC: Connection | null = null;
-    let bestMaxDiff = Infinity;
+    let bestQuality = Infinity;
     
-    // Limit j and k search ranges for performance
-    const jEnd = Math.min(searchLimit - 1, i + 20);
+    const jEnd = Math.min(searchLimit - 1, i + 25);
 
     for (let j = i + 1; j < jEnd; j++) {
       if (usedConnections.has(sortedConnections[j].id)) continue;
       const connB = sortedConnections[j];
-      const statsB = calculateSetMuSigma([connB]);
+      const salaryB = connB.salarySum || 0;
       
-      const kEnd = Math.min(searchLimit, j + 15);
+      // Quick check: if A and B already too far apart, skip
+      if (Math.abs(salaryA - salaryB) > maxSalaryDiff) continue;
+      
+      const statsB = calculateSetMuSigma([connB]);
+      const kEnd = Math.min(searchLimit, j + 20);
 
       for (let k = j + 1; k < kEnd; k++) {
         if (usedConnections.has(sortedConnections[k].id)) continue;
         const connC = sortedConnections[k];
+        const salaryC = connC.salarySum || 0;
+        
+        // Check salary spread across all 3
+        const salarySpread = Math.max(salaryA, salaryB, salaryC) - Math.min(salaryA, salaryB, salaryC);
+        if (salarySpread > maxSalaryDiff) continue;
+        
         const statsC = calculateSetMuSigma([connC]);
 
         const { pA, pB, pC } = calculate1v1v1Probabilities(
@@ -394,16 +431,20 @@ export function generate1v1v1Matchups(
           Math.abs(pC - 0.333)
         );
 
-        if (maxDiff < bestMaxDiff && maxDiff <= tolerance) {
-          bestMaxDiff = maxDiff;
+        if (maxDiff > tolerance) continue;
+
+        // Calculate quality score (lower is better)
+        const quality = maxDiff * 0.6 + (salarySpread / maxSalary) * 0.4;
+
+        if (quality < bestQuality) {
+          bestQuality = quality;
           bestMatchB = connB;
           bestMatchC = connC;
-          // Early exit if good enough
-          if (maxDiff < 0.1) break;
+          // Early exit if excellent match
+          if (maxDiff < 0.08 && salarySpread < 1000) break;
         }
       }
-      // Early exit if good enough
-      if (bestMaxDiff < 0.1) break;
+      if (bestQuality < 0.15) break;
     }
 
     if (bestMatchB && bestMatchC) {
@@ -449,7 +490,7 @@ export function generate1v1v1Matchups(
           sigma: statsC.sigma,
           winProbability: pC,
         },
-        balance: Math.round((1 - bestMaxDiff * 3) * 100),
+        balance: Math.round((1 - Math.max(Math.abs(pA - 0.333), Math.abs(pB - 0.333), Math.abs(pC - 0.333)) * 3) * 100),
       };
 
       matchups.push(matchup);

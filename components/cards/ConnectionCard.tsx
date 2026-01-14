@@ -9,18 +9,8 @@ interface ConnectionCardProps {
   readonly showSalary?: boolean;
 }
 
-const trackColors: Record<string, { bg: string; text: string }> = {
-  AQU: { bg: "bg-sky-500/20", text: "text-sky-600" },
-  DMR: { bg: "bg-cyan-500/20", text: "text-cyan-600" },
-  GP: { bg: "bg-emerald-500/20", text: "text-emerald-600" },
-  LRL: { bg: "bg-pink-500/20", text: "text-pink-600" },
-  MVR: { bg: "bg-amber-500/20", text: "text-amber-600" },
-  PEN: { bg: "bg-violet-500/20", text: "text-violet-600" },
-  PRX: { bg: "bg-indigo-500/20", text: "text-indigo-600" },
-  SA: { bg: "bg-rose-500/20", text: "text-rose-600" },
-  BAQ: { bg: "bg-blue-500/20", text: "text-blue-600" },
-  KEE: { bg: "bg-purple-500/20", text: "text-purple-600" },
-};
+// Track badges use distinct purple styling to differentiate from connection role badges
+const trackBadgeStyle = "bg-[var(--track-bg)] text-[var(--track)] border border-[var(--track)]/50";
 
 // Role colors - Beat the House style for better dark mode support
 const roleColors = {
@@ -43,10 +33,6 @@ const roleColors = {
 
 export function ConnectionCard({ connection, compact = false, onClick, onNameClick, isHighlighted = false, showSalary = true }: ConnectionCardProps) {
   const roleColor = roleColors[connection.role];
-  
-  // Get primary track (first one)
-  const primaryTrack = connection.trackSet[0] || "";
-  const trackColor = trackColors[primaryTrack] || { bg: "bg-gray-500", text: "text-gray-500" };
   
   return (
     <div 
@@ -76,17 +62,16 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
               {connection.name}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Role badge (J/T/S) - solid colored */}
               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${roleColor.badge}`}>
                 {connection.role.toUpperCase()}
               </span>
-              {connection.trackSet.map((track) => {
-                const trackColorForTrack = trackColors[track] || { bg: "bg-gray-600", text: "text-gray-600" };
-                return (
-                  <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold text-white ${trackColorForTrack.bg}`}>
-                    {track}
-                  </span>
-                );
-              })}
+              {/* Track badges - distinct purple style */}
+              {connection.trackSet.map((track) => (
+                <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${trackBadgeStyle}`}>
+                  {track}
+                </span>
+              ))}
             </div>
           </div>
         </div>
