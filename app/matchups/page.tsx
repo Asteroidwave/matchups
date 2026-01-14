@@ -257,28 +257,40 @@ export default function MatchupsPage() {
   
   // Multiplier schedule with 20% house take
   // True odds: 2^n for n picks at 50/50 odds
-  // After 20% house take: true_odds * 0.8 = payout multiplier
-  // Standard: All picks must win | Flex: Reduced payout with one miss allowed
-  const multiplierSchedule: Record<number, { standard: number; flexAllWin: number; flexOneMiss: number }> = {
-    2: { standard: 3, flexAllWin: 2, flexOneMiss: 1 },      // True: 4x → 3x after house
-    3: { standard: 6, flexAllWin: 4, flexOneMiss: 2 },      // True: 8x → 6x after house
-    4: { standard: 10, flexAllWin: 6, flexOneMiss: 3 },     // True: 16x → 12x → 10x
-    5: { standard: 20, flexAllWin: 12, flexOneMiss: 5 },    // True: 32x → 25x → 20x
-    6: { standard: 40, flexAllWin: 25, flexOneMiss: 10 },   // True: 64x → 50x → 40x
-    7: { standard: 80, flexAllWin: 50, flexOneMiss: 20 },   // True: 128x → 100x → 80x
-    8: { standard: 150, flexAllWin: 100, flexOneMiss: 40 }, // True: 256x → 200x → 150x
-    9: { standard: 300, flexAllWin: 200, flexOneMiss: 80 }, // True: 512x → 400x → 300x
-    10: { standard: 600, flexAllWin: 400, flexOneMiss: 150 }, // True: 1024x → 800x → 600x
+  // Multiplier calculation now accounts for 3-way matchups
+  // 1v1 matchups have 2x gross multiplier (50/50 odds)
+  // 1v1v1 matchups have 3x gross multiplier (33/33/33 odds)
+  // After 20% house take: gross_multiplier * 0.8 = payout multiplier
+  
+  // Calculate gross multiplier based on actual matchup types selected
+  const calculateGrossMultiplier = () => {
+    let grossMultiplier = 1;
+    for (const matchupId of Object.keys(selections)) {
+      const matchup = matchups.find(m => m.id === matchupId);
+      if (matchup) {
+        const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
+        grossMultiplier *= is3Way ? 3 : 2;
+      }
+    }
+    return grossMultiplier;
   };
+  
   const selectedCount = Object.keys(selections).length || 0;
-  const scheduled = multiplierSchedule[selectedCount as keyof typeof multiplierSchedule];
-  const computedMultiplier = scheduled 
-    ? (isFlex ? scheduled.flexAllWin : scheduled.standard)
+  const grossMultiplier = calculateGrossMultiplier();
+  
+  // Apply 20% house take (multiply by 0.8)
+  const computedMultiplier = selectedCount > 0 
+    ? Math.floor(grossMultiplier * 0.8) 
     : 0;
-  const flexOneMissMultiplier = scheduled?.flexOneMiss || 0;
-  const multiplierDisplay = computedMultiplier ? `${computedMultiplier}x` : "—";
+  
+  // Flex mode: reduced payout with one miss allowed (roughly 60% of standard)
+  const flexAllWinMultiplier = Math.floor(computedMultiplier * 0.7);
+  const flexOneMissMultiplier = Math.floor(computedMultiplier * 0.3);
+  
+  const finalMultiplier = isFlex ? flexAllWinMultiplier : computedMultiplier;
+  const multiplierDisplay = finalMultiplier ? `${finalMultiplier}x` : "—";
   const potentialWin = entryAmount && Number.parseFloat(entryAmount) > 0
-    ? (Number.parseFloat(entryAmount) * (computedMultiplier || 0)).toFixed(2)
+    ? (Number.parseFloat(entryAmount) * (finalMultiplier || 0)).toFixed(2)
     : "0.00";
   
   const selectedPicks = Object.entries(selections).map(([matchupId, chosen]) => {
@@ -318,7 +330,7 @@ export default function MatchupsPage() {
   
   if (isInitialLoad) {
     return (
-      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--page-bg)] flex items-center justify-center">
         <div className="text-xl text-[var(--text-secondary)]">Loading race data...</div>
       </div>
     );
@@ -326,7 +338,7 @@ export default function MatchupsPage() {
   
   if (error && connections.length === 0) {
     return (
-      <div className="min-h-screen bg-[var(--surface-1)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--page-bg)] flex items-center justify-center">
         <div className="text-center">
           <div className="text-xl text-red-600 mb-4">{error}</div>
           <Button onClick={() => globalThis.location.reload()}>Retry</Button>
@@ -336,8 +348,8 @@ export default function MatchupsPage() {
   }
   
   return (
-    <div className="h-[calc(100vh-4rem)] bg-[var(--surface-1)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
-      <div className="flex-1 flex gap-4 px-4 py-4 min-h-0" style={{ overscrollBehavior: 'contain' }}>
+    <div className="h-[calc(100vh-4rem)] bg-[var(--page-bg)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
+      <div className="flex-1 flex gap-5 px-5 py-5 min-h-0" style={{ overscrollBehavior: 'contain' }}>
         {/* Left Panel - Starters Window (fixed to Figma width 496px) */}
         <div className="w-[496px] flex-shrink-0 h-full min-h-0">
           <StartersWindow

@@ -17,8 +17,24 @@ interface ConnectionCardProps {
   readonly showSalary?: boolean;
 }
 
-// Track badges use distinct purple styling to differentiate from connection role badges
-const trackBadgeStyle = "bg-[var(--track-bg)] text-[var(--track)] border border-[var(--track)]/50";
+// Track badge colors - each track has a unique color
+const trackColors: Record<string, { bg: string; text: string; border: string }> = {
+  AQU: { bg: "bg-sky-500/20", text: "text-sky-600 dark:text-sky-400", border: "border-sky-500/50" },
+  DMR: { bg: "bg-cyan-500/20", text: "text-cyan-600 dark:text-cyan-400", border: "border-cyan-500/50" },
+  GP: { bg: "bg-emerald-500/20", text: "text-emerald-600 dark:text-emerald-400", border: "border-emerald-500/50" },
+  SA: { bg: "bg-rose-500/20", text: "text-rose-600 dark:text-rose-400", border: "border-rose-500/50" },
+  KEE: { bg: "bg-purple-500/20", text: "text-purple-600 dark:text-purple-400", border: "border-purple-500/50" },
+  LRL: { bg: "bg-pink-500/20", text: "text-pink-600 dark:text-pink-400", border: "border-pink-500/50" },
+  MVR: { bg: "bg-amber-500/20", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/50" },
+  PEN: { bg: "bg-violet-500/20", text: "text-violet-600 dark:text-violet-400", border: "border-violet-500/50" },
+  PRX: { bg: "bg-indigo-500/20", text: "text-indigo-600 dark:text-indigo-400", border: "border-indigo-500/50" },
+  BAQ: { bg: "bg-blue-500/20", text: "text-blue-600 dark:text-blue-400", border: "border-blue-500/50" },
+};
+
+const getTrackBadgeStyle = (track: string) => {
+  const colors = trackColors[track] || { bg: "bg-gray-500/20", text: "text-gray-600 dark:text-gray-400", border: "border-gray-500/50" };
+  return `${colors.bg} ${colors.text} border ${colors.border}`;
+};
 
 // Role colors - Beat the House style for better dark mode support
 const roleColors = {
@@ -85,9 +101,9 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
               <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${roleColor.badge}`}>
                 {connection.role.toUpperCase()}
               </span>
-              {/* Track badges - distinct purple style */}
+              {/* Track badges - each track has unique color */}
               {connection.trackSet.map((track) => (
-                <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${trackBadgeStyle}`}>
+                <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getTrackBadgeStyle(track)}`}>
                   {track}
                 </span>
               ))}

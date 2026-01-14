@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-[var(--surface-1)] text-[var(--text-primary)] transition-colors`}>
+      <body className={`${inter.className} bg-[var(--page-bg)] text-[var(--text-primary)] transition-colors`}>
         <ThemeProvider>
           <AppProvider>
             <Navigation />

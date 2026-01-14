@@ -195,32 +195,34 @@ export function MatchupModal({
     setTrackFilter: (connId: string, track: string | null) => void
   ) => (
     <div className={`space-y-4 p-4 rounded-xl border-2 ${
-      selectedSet === setLabel ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+      selectedSet === setLabel 
+        ? "border-[var(--brand)] bg-[var(--blue-50)]" 
+        : "border-[var(--content-15)] bg-[var(--surface-1)]"
     }`}>
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-bold">Set {setLabel}</h3>
+        <h3 className="text-xl font-bold text-[var(--text-primary)]">Set {setLabel}</h3>
         {selectedSet === setLabel && (
-          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+          <span className="bg-[var(--brand)] text-white px-3 py-1 rounded-full text-sm font-semibold">
             Selected
           </span>
         )}
       </div>
       
       {/* Summary Box */}
-      <div className="bg-gray-100 rounded-lg p-2 text-center">
-        <div className="text-xl font-bold text-blue-600 mb-2">
+      <div className="bg-[var(--surface-2)] rounded-lg p-2 text-center">
+        <div className="text-xl font-bold text-[var(--brand)] mb-2">
           Total Points: {setPointsVal.toFixed(1)}
         </div>
         <div className="text-sm items-center text-center space-y-0.5">
           <div className="flex items-center justify-center gap-2">
-            <span className="text-gray-600 w-[90px] text-right">Total Salary</span>
-            <span className="text-gray-600">:</span>
-            <span className="font-semibold text-gray-900 ml-1">${setSide.salaryTotal.toLocaleString()}</span>
+            <span className="text-[var(--text-secondary)] w-[90px] text-right">Total Salary</span>
+            <span className="text-[var(--text-secondary)]">:</span>
+            <span className="font-semibold text-[var(--text-primary)] ml-1">${setSide.salaryTotal.toLocaleString()}</span>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
-            <span className="text-gray-600">:</span>
-            <span className="font-semibold text-gray-900 ml-1">{pointsPer1K.toFixed(2)}</span>
+            <span className="text-[var(--text-secondary)] w-[90px] text-right">Points/$1K</span>
+            <span className="text-[var(--text-secondary)]">:</span>
+            <span className="font-semibold text-[var(--text-primary)] ml-1">{pointsPer1K.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -232,52 +234,52 @@ export function MatchupModal({
         const filteredStats = getFilteredStats(conn, selectedTrack);
         
         return (
-          <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+          <div key={conn.id} className="border border-[var(--content-15)] rounded-lg p-3 bg-[var(--surface-1)]">
             <div className="mb-3">
               <div className="flex items-center gap-2 mb-2">
-                <div className="font-bold text-base text-gray-900">{conn.name}</div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                  conn.role === "jockey" ? "bg-blue-100 text-blue-800" :
-                  conn.role === "trainer" ? "bg-green-100 text-green-800" :
-                  "bg-amber-100 text-amber-800"
+                <div className="font-bold text-base text-[var(--text-primary)]">{conn.name}</div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${
+                  conn.role === "jockey" ? "bg-[var(--jockey)]" :
+                  conn.role === "trainer" ? "bg-[var(--trainer)]" :
+                  "bg-[var(--sire)]"
                 }`}>
                   {conn.role.toUpperCase()}
                 </span>
               </div>
               
-              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div className="border border-[var(--content-15)] rounded-lg p-3 bg-[var(--surface-2)]">
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Apps</div>
-                    <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
+                    <div className="text-xs text-[var(--text-tertiary)] mb-1">Apps</div>
+                    <div className="font-bold text-sm text-[var(--text-primary)]">{filteredStats.apps}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
-                    <div className="font-bold text-sm text-gray-900">
+                    <div className="text-xs text-[var(--text-tertiary)] mb-1">Avg Odds</div>
+                    <div className="font-bold text-sm text-[var(--text-primary)]">
                       {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500 mb-1">AVPA (90D)</div>
-                    <div className="font-bold text-sm text-gray-900">
+                    <div className="text-xs text-[var(--text-tertiary)] mb-1">AVPA (90D)</div>
+                    <div className="font-bold text-sm text-[var(--text-primary)]">
                       {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
                     </div>
                   </div>
                 </div>
                 
-                <div className="border-t border-gray-200 pt-3">
+                <div className="border-t border-[var(--content-15)] pt-3">
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Salary</div>
-                      <div className="font-bold text-sm text-gray-900">${filteredStats.salary.toLocaleString()}</div>
+                      <div className="text-xs text-[var(--text-tertiary)] mb-1">Salary</div>
+                      <div className="font-bold text-sm text-[var(--text-primary)]">${filteredStats.salary.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Points</div>
-                      <div className="font-bold text-lg text-gray-900">{filteredStats.points.toFixed(1)}</div>
+                      <div className="text-xs text-[var(--text-tertiary)] mb-1">Points</div>
+                      <div className="font-bold text-lg text-[var(--text-primary)]">{filteredStats.points.toFixed(1)}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500 mb-1">Points/1K$</div>
-                      <div className="font-bold text-lg text-gray-900">{filteredStats.pointsPer1K.toFixed(2)}</div>
+                      <div className="text-xs text-[var(--text-tertiary)] mb-1">Points/1K$</div>
+                      <div className="font-bold text-lg text-[var(--text-primary)]">{filteredStats.pointsPer1K.toFixed(2)}</div>
                     </div>
                   </div>
                 </div>
@@ -285,17 +287,17 @@ export function MatchupModal({
             </div>
             
             {/* Top Finishes */}
-            <div className="mt-2 pt-2 border-t border-gray-200">
+            <div className="mt-2 pt-2 border-t border-[var(--content-15)]">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold text-gray-700">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
+                <div className="text-xs font-semibold text-[var(--text-secondary)]">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
                 {tracks.length > 1 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       onClick={() => setTrackFilter(conn.id, null)}
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         selectedTrack === null
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          ? "bg-[var(--brand)] text-white"
+                          : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
                       }`}
                     >
                       All
@@ -306,8 +308,8 @@ export function MatchupModal({
                         onClick={() => setTrackFilter(conn.id, track)}
                         className={`px-2 py-1 rounded text-xs font-medium ${
                           selectedTrack === track
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            ? "bg-[var(--brand)] text-white"
+                            : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
                         }`}
                       >
                         {track}
@@ -318,13 +320,13 @@ export function MatchupModal({
               </div>
               
               {/* Starters table - simplified for space */}
-              <div className="border border-gray-300 rounded-lg overflow-hidden bg-white max-h-48 overflow-y-auto">
+              <div className="border border-[var(--content-15)] rounded-lg overflow-hidden bg-[var(--surface-1)] max-h-48 overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr className="border-b-2 border-gray-300">
-                      <th className="text-left py-2 px-2 text-xs font-semibold text-gray-700">Horse</th>
-                      <th className="text-left py-2 px-2 text-xs font-semibold text-gray-700">Fin</th>
-                      <th className="text-right py-2 px-2 text-xs font-semibold text-gray-700">Pts</th>
+                  <thead className="bg-[var(--surface-2)] sticky top-0">
+                    <tr className="border-b-2 border-[var(--content-15)]">
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Horse</th>
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Fin</th>
+                      <th className="text-right py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Pts</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -335,7 +337,7 @@ export function MatchupModal({
                       const post = racePostMap?.get(horseKey);
                       
                       return (
-                        <tr key={idx} className="border-b border-gray-200">
+                        <tr key={idx} className="border-b border-[var(--content-15)]">
                           <td className="py-1.5 px-2">
                             <div className="flex items-center gap-1">
                               <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-semibold ${
@@ -343,7 +345,7 @@ export function MatchupModal({
                               }`}>
                                 {post || "—"}
                               </span>
-                              <span className="text-xs font-medium text-gray-900 truncate max-w-20">{starter.horseName}</span>
+                              <span className="text-xs font-medium text-[var(--text-primary)] truncate max-w-20">{starter.horseName}</span>
                             </div>
                           </td>
                           <td className="py-1.5 px-2">
@@ -351,7 +353,7 @@ export function MatchupModal({
                               {starter.pos || "—"}
                             </span>
                           </td>
-                          <td className="py-1.5 px-2 text-right font-medium text-gray-900 text-xs">
+                          <td className="py-1.5 px-2 text-right font-medium text-[var(--text-primary)] text-xs">
                             {starter.points?.toFixed(1) || "0"}
                           </td>
                         </tr>
@@ -369,11 +371,11 @@ export function MatchupModal({
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${is3Way ? "max-w-7xl" : "max-w-6xl"} max-h-[90vh] overflow-y-auto`}>
-        <DialogTitle className="text-2xl font-bold mb-4 flex items-center gap-3">
+      <DialogContent className={`${is3Way ? "max-w-[95vw] w-[1400px]" : "max-w-[90vw] w-[1100px]"} max-h-[90vh] overflow-y-auto bg-[var(--surface-1)]`}>
+        <DialogTitle className="text-2xl font-bold mb-4 flex items-center gap-3 text-[var(--text-primary)]">
           Matchup Details
           {is3Way && (
-            <span className="px-2 py-0.5 bg-purple-500/20 text-purple-600 border border-purple-500/30 rounded text-sm font-semibold">
+            <span className="px-2 py-0.5 bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 rounded text-sm font-semibold">
               1v1v1
             </span>
           )}

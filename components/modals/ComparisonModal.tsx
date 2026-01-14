@@ -36,8 +36,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   ) => {
     const scrollRef = setId === "A" ? scrollRefA : setId === "B" ? scrollRefB : scrollRefC;
     
-    // For 3-way matchups, use narrower modals
-    const modalWidth = is3Way ? "w-[420px]" : "w-[616px]";
+    // For 3-way matchups, use slightly wider modals to prevent cutoff
+    const modalWidth = is3Way ? "w-[480px]" : "w-[620px]";
     // Background color for the header based on role (single color)
     const headerBg = {
       jockey: "bg-blue-600",

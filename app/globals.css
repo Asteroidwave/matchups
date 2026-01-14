@@ -4,6 +4,9 @@
 
 /* Beat the House inspired theme - sophisticated racing aesthetic */
 :root {
+  /* Page background (behind panels) */
+  --page-bg: #e2e8f0;
+  
   /* Background surfaces */
   --background: #f8fafc;
   --surface-1: #ffffff;
@@ -39,9 +42,19 @@
   --trainer: #16a34a;
   --sire: #d97706;
   
-  /* Track badge color - distinct from connections */
+  /* Track badge colors - each track gets a unique color */
   --track: #8b5cf6;
   --track-bg: #ede9fe;
+  --track-aqu: #0ea5e9;
+  --track-dmr: #06b6d4;
+  --track-gp: #10b981;
+  --track-sa: #f43f5e;
+  --track-kee: #a855f7;
+  --track-lrl: #ec4899;
+  --track-mvr: #f59e0b;
+  --track-pen: #8b5cf6;
+  --track-prx: #6366f1;
+  --track-baq: #3b82f6;
   
   /* Status colors */
   --success: #16a34a;
@@ -56,12 +69,15 @@
 
 /* Dark mode - Beat the House sophisticated racing aesthetic */
 .dark {
-  /* Background surfaces */
-  --background: #0a0e14;
-  --surface-1: #121820;
-  --surface-2: #1a222d;
-  --surface-elevated: #1a222d;
-  --surface-hover: #232d3b;
+  /* Page background (behind panels) - darker than panels */
+  --page-bg: #0a0e14;
+  
+  /* Background surfaces - panels are slightly lighter */
+  --background: #0f141c;
+  --surface-1: #151c28;
+  --surface-2: #1c2433;
+  --surface-elevated: #1c2433;
+  --surface-hover: #242f40;
   --border: #2a3544;
   
   /* Text colors */
@@ -78,12 +94,12 @@
   
   /* Legacy mappings */
   --blue-50: #1e3a5f;
-  --content-15: #1a222d;
-  --content-16: #232d3b;
+  --content-15: #1c2433;
+  --content-16: #242f40;
   --content-9: #94a3b8;
   --btn-link: #3b82f6;
   --btn-default: #3b82f6;
-  --surface-3: #232d3b;
+  --surface-3: #242f40;
   --chip-outline: #2a3544;
   
   /* Connection colors */
@@ -91,9 +107,19 @@
   --trainer: #22c55e;
   --sire: #f59e0b;
   
-  /* Track badge color - distinct purple that pops in dark mode */
+  /* Track badge colors - each track gets a unique color in dark mode */
   --track: #a78bfa;
   --track-bg: #2e1065;
+  --track-aqu: #38bdf8;
+  --track-dmr: #22d3ee;
+  --track-gp: #34d399;
+  --track-sa: #fb7185;
+  --track-kee: #c084fc;
+  --track-lrl: #f472b6;
+  --track-mvr: #fbbf24;
+  --track-pen: #a78bfa;
+  --track-prx: #818cf8;
+  --track-baq: #60a5fa;
   
   /* Status colors */
   --success: #22c55e;
@@ -103,7 +129,7 @@
   /* Calendar colors */
   --calendar-race-day: #3B82F6;
   --calendar-selected: #EF4444;
-  --calendar-hover: #1a222d;
+  --calendar-hover: #1c2433;
 }
 
 html {
@@ -115,7 +141,7 @@ html {
 
 body {
   color: var(--text-primary);
-  background: var(--surface-1);
+  background: var(--page-bg);
   height: 100%;
   overscroll-behavior-y: contain;
   overscroll-behavior-x: none;
