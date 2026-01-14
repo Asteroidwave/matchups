@@ -193,7 +193,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '85vh', pointerEvents: 'auto' }}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ height: '85vh', maxHeight: '85vh', pointerEvents: 'auto' }}>
         {/* Header - Matching ConnectionModal style */}
         <div className={`relative h-[140px] ${headerBg} text-white flex-shrink-0 rounded-t-lg`}>
           <button
@@ -292,13 +292,14 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
         </div>
         
-        {/* Content - Flex grow to fill remaining space */}
+        {/* Content - Scrollable area */}
         <div 
           ref={scrollRef}
-          className="flex-1 overflow-y-auto min-h-0" 
+          className="flex-1 overflow-y-auto overflow-x-hidden min-h-0" 
           style={{ 
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain'
+            overscrollBehavior: 'contain',
+            scrollBehavior: 'smooth'
           }}
         >
           {activeTab === "connected" && (
@@ -548,15 +549,15 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
         {/* Backdrop with blur */}
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
+        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         
         {/* Modal Container - Side by side with minimal gap */}
-        <div className={`relative z-50 flex items-start justify-center gap-2 pointer-events-none pt-2 pb-2 ${is3Way ? 'px-2' : ''}`}>
+        <div className={`relative z-50 flex items-start justify-center gap-2 pt-2 pb-2 ${is3Way ? 'px-2' : ''}`}>
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
-            <div className="pointer-events-auto">
+            <div>
               {renderConnectionModal(
                 matchup.setA.connections[connectionIndexA] || matchup.setA.connections[0],
                 activeTabSetA,
@@ -581,7 +582,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
           {/* Set B Modal */}
           {matchup?.setB?.connections?.length > 0 ? (
-            <div className="pointer-events-auto">
+            <div>
               {renderConnectionModal(
                 matchup.setB.connections[connectionIndexB] || matchup.setB.connections[0],
                 activeTabSetB,
@@ -606,7 +607,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           
           {/* Set C Modal (only for 3-way matchups) */}
           {is3Way && matchup?.setC?.connections?.length > 0 ? (
-            <div className="pointer-events-auto">
+            <div>
               {renderConnectionModal(
                 matchup.setC.connections[connectionIndexC] || matchup.setC.connections[0],
                 activeTabSetC,
