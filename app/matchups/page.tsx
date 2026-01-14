@@ -31,6 +31,10 @@ export default function MatchupsPage() {
     selectedDate,
     setSelectedTracks,
     setSelectedDate,
+    filterState,
+    togglePlayerFilter,
+    getPlayerHighlightColor,
+    clearPlayerFilters,
   } = useApp();
   
   const [selections, setSelections] = useState<Record<string, "A" | "B" | "C">>({});
@@ -148,15 +152,20 @@ export default function MatchupsPage() {
   const handleConnectionNameClick = (connectionId: string) => {
     const conn = connections.find(c => c.id === connectionId);
     if (conn) {
-      // If clicking the same connection that's already filtered, clear it (toggle off)
-      // This will return to the previous view (either default horses or connected horses)
-      // Otherwise, set it as the new filter (overrides current filter)
-      // This will filter the starters panel to show only horses with this connection
-      if (filteredConnection?.id === connectionId) {
-        setFilteredConnection(null);
-        setHighlightedConnectionId(null);
+      // Use multi-select filtering via AppContext
+      // This toggles the connection in the selected players list
+      // If already selected, it removes it; if not selected, it adds it
+      togglePlayerFilter(conn);
+      
+      // Also set as highlighted for visual feedback on MatchupCard
+      const isAlreadySelected = filterState.selectedPlayers.some(p => p.id === connectionId);
+      if (isAlreadySelected) {
+        // If we're removing this filter and it's the highlighted one, clear highlight
+        if (highlightedConnectionId === connectionId) {
+          setHighlightedConnectionId(null);
+        }
       } else {
-        setFilteredConnection(conn);
+        // Set this as the highlighted connection
         setHighlightedConnectionId(connectionId);
       }
     }
@@ -455,6 +464,7 @@ export default function MatchupsPage() {
                       setSelectedMatchupForComparison(matchup);
                       setIsComparisonModalOpen(true);
                     }}
+                    getPlayerHighlightColor={getPlayerHighlightColor}
                   />
                 </div>
               ))

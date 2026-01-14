@@ -2,6 +2,13 @@ import { SetSide } from "@/types";
 import { ConnectionCard } from "./ConnectionCard";
 import { SetStats } from "./SetStats";
 
+interface HighlightColor {
+  bg: string;
+  light: string;
+  border: string;
+  text: string;
+}
+
 interface SetCardProps {
   readonly setSide: SetSide;
   readonly label?: string;
@@ -13,6 +20,7 @@ interface SetCardProps {
   readonly showPoints?: boolean;
   readonly showAvpaRace?: boolean;
   readonly highlightedConnectionId?: string;
+  readonly getPlayerHighlightColor?: (connectionId: string) => HighlightColor | null;
 }
 
 export function SetCard({
@@ -26,6 +34,7 @@ export function SetCard({
   showPoints = false,
   showAvpaRace = false,
   highlightedConnectionId,
+  getPlayerHighlightColor,
 }: SetCardProps) {
   const connectionCount = setSide.connections.length;
   const totalPoints = setSide.connections.reduce((sum, c) => sum + c.pointsSum, 0);
@@ -83,17 +92,21 @@ export function SetCard({
       
       {/* Connection Cards */}
       <div className="space-y-2">
-        {setSide.connections.map((conn) => (
-          <ConnectionCard 
-            key={conn.id} 
-            connection={conn}
-            onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
-            onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
-            isHighlighted={conn.id === highlightedConnectionId}
-            showSalary={!isSingleConnection}
-            compact={false}
-          />
-        ))}
+        {setSide.connections.map((conn) => {
+          const highlightColor = getPlayerHighlightColor?.(conn.id);
+          return (
+            <ConnectionCard 
+              key={conn.id} 
+              connection={conn}
+              onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
+              onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
+              isHighlighted={conn.id === highlightedConnectionId || !!highlightColor}
+              highlightColor={highlightColor}
+              showSalary={!isSingleConnection}
+              compact={false}
+            />
+          );
+        })}
       </div>
       
       {/* Set Stats (if 2+ connections) */}

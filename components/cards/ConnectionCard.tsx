@@ -1,11 +1,19 @@
 import { Connection } from "@/types";
 
+interface HighlightColor {
+  bg: string;
+  light: string;
+  border: string;
+  text: string;
+}
+
 interface ConnectionCardProps {
   readonly connection: Connection;
   readonly compact?: boolean;
   readonly onClick?: () => void;
   readonly onNameClick?: () => void;
   readonly isHighlighted?: boolean;
+  readonly highlightColor?: HighlightColor | null;
   readonly showSalary?: boolean;
 }
 
@@ -31,16 +39,25 @@ const roleColors = {
   },
 };
 
-export function ConnectionCard({ connection, compact = false, onClick, onNameClick, isHighlighted = false, showSalary = true }: ConnectionCardProps) {
+export function ConnectionCard({ connection, compact = false, onClick, onNameClick, isHighlighted = false, highlightColor, showSalary = true }: ConnectionCardProps) {
   const roleColor = roleColors[connection.role];
+  
+  // Determine highlight styling based on multi-select color or default
+  const getHighlightStyles = () => {
+    if (highlightColor) {
+      // Multi-select highlight with specific color
+      return `${highlightColor.light} border-2 ${highlightColor.border} shadow-md`;
+    }
+    if (isHighlighted) {
+      // Default single highlight
+      return "bg-[var(--blue-50)] border-[var(--brand)] shadow-md";
+    }
+    return "bg-[var(--surface-1)] border-[var(--content-15)] hover:border-[var(--content-9)]";
+  };
   
   return (
     <div 
-      className={`w-full text-left rounded-lg border-2 p-4 ${
-        isHighlighted
-          ? "bg-[var(--blue-50)] border-[var(--brand)] shadow-md"
-          : "bg-[var(--surface-1)] border-[var(--content-15)] hover:border-[var(--content-9)]"
-      } ${onClick ? "cursor-pointer transition-all" : ""}`}
+      className={`w-full text-left rounded-lg border-2 p-4 ${getHighlightStyles()} ${onClick ? "cursor-pointer transition-all" : ""}`}
       onClick={onClick}
     >
       {/* Name and Salary Row */}
@@ -48,7 +65,9 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <div 
-              className={`font-bold ${compact ? "text-base" : "text-lg"} text-[var(--text-primary)] truncate ${
+              className={`font-bold ${compact ? "text-base" : "text-lg"} truncate ${
+                highlightColor ? highlightColor.text : "text-[var(--text-primary)]"
+              } ${
                 onNameClick ? "hover:text-[var(--btn-link)] cursor-pointer" : ""
               }`}
               onClick={(e) => {

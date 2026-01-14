@@ -2,6 +2,13 @@ import { Matchup } from "@/types";
 import { SetCard } from "./SetCard";
 import { GitCompare } from "lucide-react";
 
+interface HighlightColor {
+  bg: string;
+  light: string;
+  border: string;
+  text: string;
+}
+
 interface MatchupCardProps {
   readonly matchup: Matchup;
   readonly selected?: "A" | "B" | "C";
@@ -13,6 +20,7 @@ interface MatchupCardProps {
   readonly highlightedConnectionId?: string;
   readonly matchupNumber?: number;
   readonly onCompareClick?: () => void;
+  readonly getPlayerHighlightColor?: (connectionId: string) => HighlightColor | null;
 }
 
 export function MatchupCard({
@@ -26,6 +34,7 @@ export function MatchupCard({
   highlightedConnectionId,
   matchupNumber,
   onCompareClick,
+  getPlayerHighlightColor,
 }: MatchupCardProps) {
   const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
   const typeLabel = is3Way 
@@ -70,6 +79,7 @@ export function MatchupCard({
             showPoints={showPoints}
             showAvpaRace={showAvpaRace}
             highlightedConnectionId={highlightedConnectionId}
+            getPlayerHighlightColor={getPlayerHighlightColor}
           />
           <SetCard
             setSide={matchup.setB}
@@ -82,6 +92,7 @@ export function MatchupCard({
             showPoints={showPoints}
             showAvpaRace={showAvpaRace}
             highlightedConnectionId={highlightedConnectionId}
+            getPlayerHighlightColor={getPlayerHighlightColor}
           />
           {is3Way && matchup.setC && (
             <SetCard
@@ -95,6 +106,7 @@ export function MatchupCard({
               showPoints={showPoints}
               showAvpaRace={showAvpaRace}
               highlightedConnectionId={highlightedConnectionId}
+              getPlayerHighlightColor={getPlayerHighlightColor}
             />
           )}
         </div>

@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { Connection, Starter } from "@/types";
 import { Card } from "@/components/ui/card";
+import { useApp } from "@/contexts/AppContext";
+import { X } from "lucide-react";
 
 interface StartersWindowProps {
   readonly connections: Connection[];
@@ -41,6 +43,16 @@ export function StartersWindow({
   const [activeTrackFilter, setActiveTrackFilter] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"horses" | "connected">("horses");
   
+  // Multi-select filtering from AppContext
+  const { 
+    filterState, 
+    togglePlayerFilter, 
+    clearPlayerFilters,
+    getPlayerHighlightColor 
+  } = useApp();
+  
+  const hasMultiSelectFilters = filterState.selectedPlayers.length > 0;
+  
   // Use selectedTracks from calendar picker if available, otherwise show ALL
   const tracksToShow = selectedTracks.length > 0 ? selectedTracks : ["ALL"];
 
@@ -74,6 +86,20 @@ export function StartersWindow({
   const isConnectionInMatchups = (name: string, role: "jockey" | "trainer" | "sire") => {
     const connId = getConnectionIdByName(name, role);
     return connId ? matchupConnectionIds.has(connId) : false;
+  };
+  
+  // Get multi-select highlight color for a connection by name/role
+  const getConnectionHighlightByName = (name: string, role: "jockey" | "trainer" | "sire") => {
+    const connId = getConnectionIdByName(name, role);
+    if (!connId) return null;
+    return getPlayerHighlightColor(connId);
+  };
+  
+  // Check if a connection is in the multi-select filter
+  const isConnectionInMultiSelect = (name: string, role: "jockey" | "trainer" | "sire") => {
+    const connId = getConnectionIdByName(name, role);
+    if (!connId) return false;
+    return filterState.selectedPlayers.some(p => p.id === connId);
   };
   
   // Handle view mode changes
@@ -164,7 +190,23 @@ export function StartersWindow({
       }
       
       // Filter by selected connection if filtering (works in both horses and connected view)
-      if (selectedConnection) {
+      // Support multi-select filtering: if any players are selected, starter must match at least one
+      const hasMultiSelectFilter = filterState.selectedPlayers.length > 0;
+      const hasSingleSelectFilter = selectedConnection !== null;
+      
+      if (hasMultiSelectFilter) {
+        // Check if starter matches ANY of the selected players
+        const matchesAnySelected = filterState.selectedPlayers.some(player => {
+          if (player.role === "jockey" && starter.jockey === player.name) return true;
+          if (player.role === "trainer" && starter.trainer === player.name) return true;
+          if (player.role === "sire" && (starter.sire1 === player.name || starter.sire2 === player.name)) return true;
+          return false;
+        });
+        
+        if (!matchesAnySelected) {
+          continue;
+        }
+      } else if (hasSingleSelectFilter) {
         const matchesConnection = 
           (selectedConnection.role === "jockey" && starter.jockey === selectedConnection.name) ||
           (selectedConnection.role === "trainer" && starter.trainer === selectedConnection.name) ||
@@ -229,9 +271,12 @@ export function StartersWindow({
       <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-[var(--text-primary)]">Starters</h2>
-          {selectedConnection && (
+          {(selectedConnection || hasMultiSelectFilters) && (
             <button
-              onClick={() => handleViewModeChange("horses")}
+              onClick={() => {
+                handleViewModeChange("horses");
+                clearPlayerFilters();
+              }}
               className="text-sm text-[var(--btn-link)] hover:opacity-90"
             >
               Clear All
@@ -303,7 +348,54 @@ export function StartersWindow({
           )}
         </div>
         
-        {selectedConnection && (
+        {/* Multi-select filter pills */}
+        {hasMultiSelectFilters && (
+          <div className="mt-3 px-3 py-2 bg-[var(--blue-50)] rounded-md border border-[var(--content-15)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-[var(--text-tertiary)]">Filtering by {filterState.selectedPlayers.length} player{filterState.selectedPlayers.length > 1 ? 's' : ''}:</span>
+              <button
+                onClick={clearPlayerFilters}
+                className="text-xs text-[var(--btn-link)] hover:opacity-90"
+              >
+                Clear All
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {filterState.selectedPlayers.map((player) => {
+                const highlightColor = getPlayerHighlightColor(player.id);
+                return (
+                  <div
+                    key={player.id}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md border-2 ${highlightColor?.bg || 'bg-blue-500'}/20 ${highlightColor?.border || 'border-blue-500'}`}
+                  >
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${
+                      player.role === "jockey" 
+                        ? "bg-blue-600 text-white"
+                        : player.role === "trainer"
+                        ? "bg-green-600 text-white"
+                        : "bg-amber-600 text-white"
+                    }`}>
+                      {player.role.charAt(0)}
+                    </span>
+                    <span className={`text-[12px] font-medium ${highlightColor?.text || 'text-blue-500'}`}>
+                      {player.name}
+                    </span>
+                    <button
+                      onClick={() => togglePlayerFilter(player)}
+                      className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                      aria-label={`Remove ${player.name} filter`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        
+        {/* Single select filter (legacy - only show if no multi-select filters) */}
+        {selectedConnection && !hasMultiSelectFilters && (
           <div className="mt-3 px-3 py-2 bg-[var(--blue-50)] rounded-md border border-[var(--content-15)]">
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -406,128 +498,172 @@ export function StartersWindow({
                       {/* Right block: connections in 2 rows */}
                       <div className="flex-1 min-w-0 flex flex-col">
                         <div className="flex w-full">
-                          <div 
-                            role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? "button" : undefined}
-                            tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
-                                : ""
-                            }`}
-                            onClick={() => handleConnectionNameClickInStarters(jockey, "jockey")}
-                            onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")) {
-                                e.preventDefault();
-                                handleConnectionNameClickInStarters(jockey, "jockey");
-                              }
-                            }}
-                          >
-                            <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
-                                ? "bg-white text-[var(--jockey)]"
-                                : "bg-[var(--jockey)] text-white"
-                            }`}>J</span>
-                            <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "jockey" && jockey === selectedConnection?.name
-                                ? "text-white"
-                                : "text-[var(--text-primary)]"
-                            }`}>{jockey}</span>
-                          </div>
-                          <div 
-                            role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? "button" : undefined}
-                            tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
-                                : ""
-                            }`}
-                            onClick={() => handleConnectionNameClickInStarters(trainer, "trainer")}
-                            onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")) {
-                                e.preventDefault();
-                                handleConnectionNameClickInStarters(trainer, "trainer");
-                              }
-                            }}
-                          >
-                            <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
-                                ? "bg-white text-[var(--trainer)]"
-                                : "bg-[var(--trainer)] text-white"
-                            }`}>T</span>
-                            <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "trainer" && trainer === selectedConnection?.name
-                                ? "text-white"
-                                : "text-[var(--text-primary)]"
-                            }`}>{trainer}</span>
-                          </div>
+                          {(() => {
+                            const jockeyHighlight = getConnectionHighlightByName(jockey, "jockey");
+                            const isSingleSelectJockey = selectedConnection?.role === "jockey" && jockey === selectedConnection?.name;
+                            const isMultiSelectJockey = !!jockeyHighlight;
+                            return (
+                              <div 
+                                role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? "button" : undefined}
+                                tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey") ? 0 : undefined}
+                                className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
+                                  isMultiSelectJockey
+                                    ? `${jockeyHighlight.light} rounded border ${jockeyHighlight.border}`
+                                    : isSingleSelectJockey
+                                    ? "bg-[var(--brand)] rounded"
+                                    : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")
+                                    ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                                    : ""
+                                }`}
+                                onClick={() => handleConnectionNameClickInStarters(jockey, "jockey")}
+                                onKeyDown={(e) => {
+                                  if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(jockey, "jockey")) {
+                                    e.preventDefault();
+                                    handleConnectionNameClickInStarters(jockey, "jockey");
+                                  }
+                                }}
+                              >
+                                <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
+                                  isSingleSelectJockey
+                                    ? "bg-white text-[var(--jockey)]"
+                                    : "bg-[var(--jockey)] text-white"
+                                }`}>J</span>
+                                <span className={`text-[12px] leading-[18px] font-semibold truncate ${
+                                  isMultiSelectJockey
+                                    ? jockeyHighlight.text
+                                    : isSingleSelectJockey
+                                    ? "text-white"
+                                    : "text-[var(--text-primary)]"
+                                }`}>{jockey}</span>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const trainerHighlight = getConnectionHighlightByName(trainer, "trainer");
+                            const isSingleSelectTrainer = selectedConnection?.role === "trainer" && trainer === selectedConnection?.name;
+                            const isMultiSelectTrainer = !!trainerHighlight;
+                            return (
+                              <div 
+                                role={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? "button" : undefined}
+                                tabIndex={viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer") ? 0 : undefined}
+                                className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
+                                  isMultiSelectTrainer
+                                    ? `${trainerHighlight.light} rounded border ${trainerHighlight.border}`
+                                    : isSingleSelectTrainer
+                                    ? "bg-[var(--brand)] rounded"
+                                    : viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")
+                                    ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                                    : ""
+                                }`}
+                                onClick={() => handleConnectionNameClickInStarters(trainer, "trainer")}
+                                onKeyDown={(e) => {
+                                  if ((e.key === "Enter" || e.key === " ") && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(trainer, "trainer")) {
+                                    e.preventDefault();
+                                    handleConnectionNameClickInStarters(trainer, "trainer");
+                                  }
+                                }}
+                              >
+                                <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
+                                  isSingleSelectTrainer
+                                    ? "bg-white text-[var(--trainer)]"
+                                    : "bg-[var(--trainer)] text-white"
+                                }`}>T</span>
+                                <span className={`text-[12px] leading-[18px] font-semibold truncate ${
+                                  isMultiSelectTrainer
+                                    ? trainerHighlight.text
+                                    : isSingleSelectTrainer
+                                    ? "text-white"
+                                    : "text-[var(--text-primary)]"
+                                }`}>{trainer}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <div className="flex w-full">
-                          <div 
-                            role={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? "button" : undefined}
-                            tabIndex={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              if (sire1) handleConnectionNameClickInStarters(sire1, "sire");
-                            }}
-                            onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1, "sire")) {
-                                e.preventDefault();
-                                handleConnectionNameClickInStarters(sire1, "sire");
-                              }
-                            }}
-                          >
-                            <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
-                                ? "bg-white text-[var(--sire)]"
-                                : "bg-[var(--sire)] text-white"
-                            }`}>S</span>
-                            <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "sire" && sire1 === selectedConnection?.name
-                                ? "text-white"
-                                : "text-[var(--text-primary)]"
-                            }`}>{sire1 || "Unknown"}</span>
-                          </div>
-                          <div 
-                            role={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? "button" : undefined}
-                            tabIndex={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? 0 : undefined}
-                            className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
-                                ? "bg-[var(--brand)] rounded"
-                                : sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire")
-                                ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              if (sire2) handleConnectionNameClickInStarters(sire2, "sire");
-                            }}
-                            onKeyDown={(e) => {
-                              if ((e.key === "Enter" || e.key === " ") && sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2, "sire")) {
-                                e.preventDefault();
-                                handleConnectionNameClickInStarters(sire2, "sire");
-                              }
-                            }}
-                          >
-                            <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
-                                ? "bg-white text-[var(--sire)]"
-                                : "bg-[var(--sire)] text-white"
-                            }`}>S</span>
-                            <span className={`text-[12px] leading-[18px] font-semibold truncate ${
-                              selectedConnection?.role === "sire" && sire2 === selectedConnection?.name
-                                ? "text-white"
-                                : "text-[var(--text-primary)]"
-                            }`}>{sire2 || "Unknown"}</span>
-                          </div>
+                          {(() => {
+                            const sire1Highlight = sire1 ? getConnectionHighlightByName(sire1, "sire") : null;
+                            const isSingleSelectSire1 = selectedConnection?.role === "sire" && sire1 === selectedConnection?.name;
+                            const isMultiSelectSire1 = !!sire1Highlight;
+                            return (
+                              <div 
+                                role={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? "button" : undefined}
+                                tabIndex={sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire") ? 0 : undefined}
+                                className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
+                                  isMultiSelectSire1
+                                    ? `${sire1Highlight!.light} rounded border ${sire1Highlight!.border}`
+                                    : isSingleSelectSire1
+                                    ? "bg-[var(--brand)] rounded"
+                                    : sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1 || "", "sire")
+                                    ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  if (sire1) handleConnectionNameClickInStarters(sire1, "sire");
+                                }}
+                                onKeyDown={(e) => {
+                                  if ((e.key === "Enter" || e.key === " ") && sire1 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire1, "sire")) {
+                                    e.preventDefault();
+                                    handleConnectionNameClickInStarters(sire1, "sire");
+                                  }
+                                }}
+                              >
+                                <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
+                                  isSingleSelectSire1
+                                    ? "bg-white text-[var(--sire)]"
+                                    : "bg-[var(--sire)] text-white"
+                                }`}>S</span>
+                                <span className={`text-[12px] leading-[18px] font-semibold truncate ${
+                                  isMultiSelectSire1
+                                    ? sire1Highlight!.text
+                                    : isSingleSelectSire1
+                                    ? "text-white"
+                                    : "text-[var(--text-primary)]"
+                                }`}>{sire1 || "Unknown"}</span>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const sire2Highlight = sire2 ? getConnectionHighlightByName(sire2, "sire") : null;
+                            const isSingleSelectSire2 = selectedConnection?.role === "sire" && sire2 === selectedConnection?.name;
+                            const isMultiSelectSire2 = !!sire2Highlight;
+                            return (
+                              <div 
+                                role={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? "button" : undefined}
+                                tabIndex={sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire") ? 0 : undefined}
+                                className={`flex-1 min-w-0 px-3 py-1 flex items-center gap-1.5 ${
+                                  isMultiSelectSire2
+                                    ? `${sire2Highlight!.light} rounded border ${sire2Highlight!.border}`
+                                    : isSingleSelectSire2
+                                    ? "bg-[var(--brand)] rounded"
+                                    : sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2 || "", "sire")
+                                    ? "bg-[var(--blue-50)] rounded cursor-pointer hover:bg-[var(--blue-50)]/80"
+                                    : ""
+                                }`}
+                                onClick={() => {
+                                  if (sire2) handleConnectionNameClickInStarters(sire2, "sire");
+                                }}
+                                onKeyDown={(e) => {
+                                  if ((e.key === "Enter" || e.key === " ") && sire2 && viewMode === "connected" && !selectedConnection && isConnectionInMatchups(sire2, "sire")) {
+                                    e.preventDefault();
+                                    handleConnectionNameClickInStarters(sire2, "sire");
+                                  }
+                                }}
+                              >
+                                <span className={`w-4 h-4 rounded-[4px] flex items-center justify-center text-[11px] leading-[15px] font-semibold ${
+                                  isSingleSelectSire2
+                                    ? "bg-white text-[var(--sire)]"
+                                    : "bg-[var(--sire)] text-white"
+                                }`}>S</span>
+                                <span className={`text-[12px] leading-[18px] font-semibold truncate ${
+                                  isMultiSelectSire2
+                                    ? sire2Highlight!.text
+                                    : isSingleSelectSire2
+                                    ? "text-white"
+                                    : "text-[var(--text-primary)]"
+                                }`}>{sire2 || "Unknown"}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

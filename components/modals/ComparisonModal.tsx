@@ -16,11 +16,15 @@ interface ComparisonModalProps {
 export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalProps) {
   const [activeTabSetA, setActiveTabSetA] = useState<"connected" | "past">("connected");
   const [activeTabSetB, setActiveTabSetB] = useState<"connected" | "past">("connected");
+  const [activeTabSetC, setActiveTabSetC] = useState<"connected" | "past">("connected");
   const { connections: allConnections } = useApp();
   const scrollRefA = useRef<HTMLDivElement>(null);
   const scrollRefB = useRef<HTMLDivElement>(null);
+  const scrollRefC = useRef<HTMLDivElement>(null);
 
   if (!matchup || !isOpen) return null;
+  
+  const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
 
   // Render a single connection modal (same structure as ConnectionModal)
   
@@ -28,9 +32,12 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     connection: Connection,
     activeTab: "connected" | "past",
     setActiveTab: (tab: "connected" | "past") => void,
-    isSetB: boolean = false
+    setId: "A" | "B" | "C" = "A"
   ) => {
-    const scrollRef = isSetB ? scrollRefB : scrollRefA;
+    const scrollRef = setId === "A" ? scrollRefA : setId === "B" ? scrollRefB : scrollRefC;
+    
+    // For 3-way matchups, use narrower modals
+    const modalWidth = is3Way ? "w-[420px]" : "w-[616px]";
     // Background color for the header based on role (single color)
     const headerBg = {
       jockey: "bg-blue-600",
@@ -118,7 +125,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className="w-[616px] p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0" style={{ maxHeight: '63vh', height: '63vh', pointerEvents: 'auto' }}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '63vh', height: '63vh', pointerEvents: 'auto' }}>
         {/* Header - Single color design with overlapping circle */}
         <div className={`relative h-[162px] ${headerBg} text-white flex-shrink-0`}>
           <button
@@ -388,7 +395,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 pointer-events-auto" onClick={onClose} />
         
         {/* Modal Container - Side by side with gap */}
-        <div className="relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8">
+        <div className={`relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8 ${is3Way ? 'px-4' : ''}`}>
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
             <div className="pointer-events-auto">
@@ -396,7 +403,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                 matchup.setA.connections[0],
                 activeTabSetA,
                 setActiveTabSetA,
-                false
+                "A"
               )}
             </div>
           ) : null}
@@ -408,7 +415,19 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                 matchup.setB.connections[0],
                 activeTabSetB,
                 setActiveTabSetB,
-                true
+                "B"
+              )}
+            </div>
+          ) : null}
+          
+          {/* Set C Modal (only for 3-way matchups) */}
+          {is3Way && matchup?.setC?.connections?.length > 0 ? (
+            <div className="pointer-events-auto">
+              {renderConnectionModal(
+                matchup.setC.connections[0],
+                activeTabSetC,
+                setActiveTabSetC,
+                "C"
               )}
             </div>
           ) : null}

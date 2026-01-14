@@ -31,7 +31,8 @@ export default function ResultsPage() {
   const [compareConnections, setCompareConnections] = useState<{
     conn1: Connection | null;
     conn2: Connection | null;
-  }>({ conn1: null, conn2: null });
+    conn3: Connection | null;
+  }>({ conn1: null, conn2: null, conn3: null });
   
   const toggleRound = (roundId: string) => {
     setExpandedRounds((prev) => {
@@ -351,8 +352,9 @@ export default function ResultsPage() {
         <CompareModal
           connection1={compareConnections.conn1}
           connection2={compareConnections.conn2}
+          connection3={compareConnections.conn3}
           isOpen={!!(compareConnections.conn1 && compareConnections.conn2)}
-          onClose={() => setCompareConnections({ conn1: null, conn2: null })}
+          onClose={() => setCompareConnections({ conn1: null, conn2: null, conn3: null })}
         />
       )}
     </div>

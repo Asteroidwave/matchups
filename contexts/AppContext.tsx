@@ -13,6 +13,20 @@ import {
   AVAILABLE_TRACKS 
 } from "@/lib/parseJson";
 
+// Colors for multi-select player filtering
+const HIGHLIGHT_COLORS = [
+  { bg: 'bg-blue-500', light: 'bg-blue-500/20', border: 'border-blue-500', text: 'text-blue-500' },
+  { bg: 'bg-purple-500', light: 'bg-purple-500/20', border: 'border-purple-500', text: 'text-purple-500' },
+  { bg: 'bg-pink-500', light: 'bg-pink-500/20', border: 'border-pink-500', text: 'text-pink-500' },
+  { bg: 'bg-cyan-500', light: 'bg-cyan-500/20', border: 'border-cyan-500', text: 'text-cyan-500' },
+  { bg: 'bg-orange-500', light: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-500' },
+];
+
+interface FilterState {
+  selectedPlayers: Connection[];
+  selectedHorses: { raceNumber: number; horseName: string; horseId: string }[];
+}
+
 interface AppContextType {
   connections: Connection[];
   matchups: Matchup[];
@@ -27,6 +41,15 @@ interface AppContextType {
   selectedTracks: string[];
   selectedDate: string;
   useExcelData: boolean;
+  
+  // Filtering (multi-select with highlights)
+  filterState: FilterState;
+  togglePlayerFilter: (connection: Connection) => void;
+  toggleHorseFilter: (raceNumber: number, horseName: string, horseId: string) => void;
+  clearPlayerFilters: () => void;
+  clearHorseFilters: () => void;
+  clearAllFilters: () => void;
+  getPlayerHighlightColor: (connectionId: string) => typeof HIGHLIGHT_COLORS[0] | null;
   
   loadData: () => Promise<void>;
   regenerateMatchups: (options?: { tolerance?: number; total?: number }) => void;
@@ -54,6 +77,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedTracks, setSelectedTracksState] = useState<string[]>(['AQU']);
   const [selectedDate, setSelectedDateState] = useState<string>('2025-01-01');
   const [useExcelData, setUseExcelDataState] = useState<boolean>(true);
+  
+  // Multi-select player filtering
+  const [filterState, setFilterState] = useState<FilterState>({
+    selectedPlayers: [],
+    selectedHorses: [],
+  });
   
   // Load available tracks on mount
   useEffect(() => {
@@ -289,6 +318,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
   
+  // Multi-select player filtering functions
+  const togglePlayerFilter = useCallback((connection: Connection) => {
+    setFilterState(prev => {
+      const isSelected = prev.selectedPlayers.some(p => p.id === connection.id);
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedPlayers: prev.selectedPlayers.filter(p => p.id !== connection.id),
+        };
+      } else {
+        // Limit to 5 selections (number of highlight colors)
+        if (prev.selectedPlayers.length >= 5) return prev;
+        return {
+          ...prev,
+          selectedPlayers: [...prev.selectedPlayers, connection],
+        };
+      }
+    });
+  }, []);
+  
+  const toggleHorseFilter = useCallback((raceNumber: number, horseName: string, horseId: string) => {
+    setFilterState(prev => {
+      const isSelected = prev.selectedHorses.some(h => h.horseId === horseId);
+      if (isSelected) {
+        return {
+          ...prev,
+          selectedHorses: prev.selectedHorses.filter(h => h.horseId !== horseId),
+        };
+      } else {
+        return {
+          ...prev,
+          selectedHorses: [...prev.selectedHorses, { raceNumber, horseName, horseId }],
+        };
+      }
+    });
+  }, []);
+  
+  const clearPlayerFilters = useCallback(() => {
+    setFilterState(prev => ({ ...prev, selectedPlayers: [] }));
+  }, []);
+  
+  const clearHorseFilters = useCallback(() => {
+    setFilterState(prev => ({ ...prev, selectedHorses: [] }));
+  }, []);
+  
+  const clearAllFilters = useCallback(() => {
+    setFilterState({ selectedPlayers: [], selectedHorses: [] });
+  }, []);
+  
+  const getPlayerHighlightColor = useCallback((connectionId: string) => {
+    const index = filterState.selectedPlayers.findIndex(p => p.id === connectionId);
+    if (index === -1) return null;
+    return HIGHLIGHT_COLORS[index % HIGHLIGHT_COLORS.length];
+  }, [filterState.selectedPlayers]);
+  
   return (
     <AppContext.Provider
       value={{
@@ -303,6 +387,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         selectedTracks,
         selectedDate,
         useExcelData,
+        filterState,
+        togglePlayerFilter,
+        toggleHorseFilter,
+        clearPlayerFilters,
+        clearHorseFilters,
+        clearAllFilters,
+        getPlayerHighlightColor,
         loadData,
         regenerateMatchups,
         setTolerance: handleSetTolerance,
