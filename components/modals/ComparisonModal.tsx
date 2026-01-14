@@ -194,73 +194,71 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
     return (
       <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '80vh', height: '80vh', pointerEvents: 'auto' }}>
-        {/* Header - Compact design for 3-way */}
-        <div className={`relative ${is3Way ? 'h-[120px]' : 'h-[140px]'} ${headerBg} text-white flex-shrink-0`}>
+        {/* Header - Matching ConnectionModal style */}
+        <div className={`relative h-[140px] ${headerBg} text-white flex-shrink-0 rounded-t-lg`}>
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
+            className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
           
           {/* Navigation arrows for multi-connection sets */}
           {hasMultipleConnections && (
-            <div className="absolute top-3 left-3 flex items-center gap-1 z-10">
+            <div className="absolute top-4 left-4 flex items-center gap-1 z-10 bg-white/20 rounded-full px-2 py-1">
               <button
                 onClick={onPrevConnection}
                 disabled={!canGoPrev}
-                className={`p-1 rounded-full transition-colors ${canGoPrev ? 'hover:bg-white/20 text-white' : 'text-white/30 cursor-not-allowed'}`}
+                className={`p-0.5 rounded-full transition-colors ${canGoPrev ? 'hover:bg-white/20 text-white' : 'text-white/40 cursor-not-allowed'}`}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-xs text-white/80">{connectionIndex + 1}/{totalConnections}</span>
+              <span className="text-xs text-white font-medium">{connectionIndex + 1}/{totalConnections}</span>
               <button
                 onClick={onNextConnection}
                 disabled={!canGoNext}
-                className={`p-1 rounded-full transition-colors ${canGoNext ? 'hover:bg-white/20 text-white' : 'text-white/30 cursor-not-allowed'}`}
+                className={`p-0.5 rounded-full transition-colors ${canGoNext ? 'hover:bg-white/20 text-white' : 'text-white/40 cursor-not-allowed'}`}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           )}
           
-          {/* Compact header layout */}
-          <div className={`flex items-start ${is3Way ? 'pt-3 px-3' : 'pt-4 px-4'}`}>
-            {/* Circle avatar */}
-            <div className={`${is3Way ? 'w-[70px] h-[70px] text-[36px]' : 'w-[80px] h-[80px] text-[42px]'} rounded-full bg-[var(--content-15)] flex items-center justify-center font-semibold text-[var(--content-9)] flex-shrink-0`}>
-              {connection.name.charAt(0)}
+          {/* Name and role section - positioned to leave space for avatar */}
+          <div className="pt-[32px] px-5">
+            <div className="pl-[100px] flex items-center gap-3">
+              <h2 className="text-[18px] font-semibold leading-[24px] truncate max-w-[280px]">{connection.name}</h2>
+              <span className="text-[12px] font-medium text-white/80 bg-white/20 px-2 py-0.5 rounded">
+                {connection.role.toUpperCase()}
+              </span>
             </div>
-            
-            {/* Name and Stats */}
-            <div className={`flex-1 ${is3Way ? 'ml-3' : 'ml-4'}`}>
-              {/* Name and role */}
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className={`${is3Way ? 'text-[16px]' : 'text-[18px]'} font-semibold leading-tight truncate`}>{connection.name}</h2>
-                <span className={`${is3Way ? 'text-[10px]' : 'text-[11px]'} font-medium text-white/80 bg-white/20 px-1.5 py-0.5 rounded`}>
-                  {connection.role.toUpperCase()}
-                </span>
+          </div>
+          
+          {/* Stats section */}
+          <div className="px-5 pt-3 pb-4">
+            <div className="pl-[100px] flex items-end gap-5">
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{connection.avgOdds.toFixed(2)}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/70">AVG ODDS</div>
               </div>
-              
-              {/* Stats row - compact */}
-              <div className={`grid ${is3Way ? 'grid-cols-4 gap-2' : 'grid-cols-4 gap-3'}`}>
-                <div>
-                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{connection.avgOdds.toFixed(2)}</div>
-                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>AVG ODDS</div>
-                </div>
-                <div>
-                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{String(connection.apps).padStart(2, '0')}</div>
-                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>APPS</div>
-                </div>
-                <div>
-                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>{connection.avpa30d.toFixed(2)}</div>
-                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>AVPA</div>
-                </div>
-                <div>
-                  <div className={`${is3Way ? 'text-[13px]' : 'text-[14px]'} font-semibold`}>${connection.salarySum.toLocaleString()}</div>
-                  <div className={`${is3Way ? 'text-[9px]' : 'text-[10px]'} text-white/70`}>SALARY</div>
-                </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{String(connection.apps).padStart(2, '0')}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/70">APPS</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/70">AVPA</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/70">SALARY</div>
               </div>
             </div>
+          </div>
+          
+          {/* Circle avatar overlapping header */}
+          <div className="absolute left-[20px] top-[24px] w-[80px] h-[80px] rounded-full bg-[var(--content-15)] flex items-center justify-center text-[42px] font-semibold leading-normal text-[var(--content-9)] z-20">
+            {connection.name.charAt(0)}
           </div>
         </div>
         
@@ -429,29 +427,30 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           )}
           
           {activeTab === "past" && (
-            <div style={{ width: '100%' }}>
+            <div className="overflow-x-auto">
               {isLoadingPP ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-[var(--brand)]" />
-                  <span className="ml-2 text-sm text-[var(--text-secondary)]">Loading...</span>
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-[var(--brand)]" />
+                  <span className="ml-2 text-[var(--text-secondary)]">Loading past performance...</span>
                 </div>
               ) : pastPerformance.length === 0 ? (
-                <div className="text-center py-8 text-[var(--text-secondary)] text-sm">
+                <div className="text-center py-12 text-[var(--text-secondary)]">
                   No past performance data available
                 </div>
               ) : (
                 <>
-                  {/* Header */}
-                  <div className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10 px-3 py-2">
-                    <div className="grid grid-cols-12 gap-1 text-[10px] font-medium text-[var(--text-tertiary)]">
-                      <div className="col-span-5">Race Day</div>
+                  {/* Header - Same as ConnectionModal */}
+                  <div className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10 px-5 py-2">
+                    <div className="grid grid-cols-12 gap-2 text-[12px] font-medium text-[var(--text-tertiary)]">
+                      <div className="col-span-4">Race Day</div>
                       <div className="col-span-2 text-right">Salary</div>
-                      <div className="col-span-2 text-right">Apps</div>
-                      <div className="col-span-3 text-right">AVPA</div>
+                      <div className="col-span-2 text-right">Appearances</div>
+                      <div className="col-span-2 text-right">AVPA</div>
+                      <div className="col-span-2 text-right">Points</div>
                     </div>
                   </div>
                   
-                  {/* Collapsible rows */}
+                  {/* Collapsible rows - Same as ConnectionModal */}
                   <div className="divide-y divide-[var(--content-15)]">
                     {(() => {
                       // Group by date + track
@@ -464,69 +463,83 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                       
                       return Array.from(grouped.entries()).map(([key, ppEntries]) => {
                         const [date, track] = key.split('|');
-                        const trackName = trackFullName[track] || track;
                         const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric', year: 'numeric'
+                          month: 'long', day: 'numeric', year: 'numeric'
                         });
                         
                         const totalSalary = ppEntries.reduce((sum, r) => sum + (r.salary || 0), 0);
                         const appearances = ppEntries.length;
                         const avgAVPA = ppEntries.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
+                        const totalScore = ppEntries.reduce((sum, r) => sum + (r.totalPoints || 0), 0);
                         const isExpanded = expandedRows.has(key);
                         
                         return (
                           <div key={key}>
+                            {/* Summary Row (Clickable) */}
                             <button
                               onClick={() => toggleExpandedRow?.(key)}
-                              className="w-full px-3 py-2 hover:bg-[var(--surface-2)] transition-colors text-left"
+                              className="w-full px-5 py-3 hover:bg-[var(--surface-2)] transition-colors"
                             >
-                              <div className="grid grid-cols-12 gap-1 items-center text-[12px]">
-                                <div className="col-span-5 flex items-center gap-1">
+                              <div className="grid grid-cols-12 gap-2 items-center text-[14px]">
+                                <div className="col-span-4 flex items-center gap-2">
                                   {isExpanded ? (
-                                    <ChevronDown className="w-3 h-3 text-[var(--text-tertiary)]" />
+                                    <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
                                   ) : (
-                                    <ChevronRight className="w-3 h-3 text-[var(--text-tertiary)]" />
+                                    <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)]" />
                                   )}
-                                  <span className="font-medium text-[var(--text-primary)] truncate">{formattedDate}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold text-[var(--track)] bg-[var(--track-bg)]`}>
-                                    {track}
-                                  </span>
+                                  <span className="font-medium text-[var(--text-primary)]">{formattedDate}</span>
+                                  <span className="text-[var(--text-secondary)]">{track}</span>
                                 </div>
-                                <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                                <div className="col-span-2 text-right font-medium text-[var(--text-primary)]">
                                   ${totalSalary.toLocaleString()}
                                 </div>
-                                <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                                <div className="col-span-2 text-right text-[var(--text-primary)]">
                                   {appearances}
                                 </div>
-                                <div className="col-span-3 text-right font-semibold text-[var(--text-primary)]">
-                                  {avgAVPA.toFixed(1)}
+                                <div className="col-span-2 text-right text-[var(--text-primary)]">
+                                  {avgAVPA.toFixed(2)}
+                                </div>
+                                <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
+                                  {totalScore.toFixed(2)}
                                 </div>
                               </div>
                             </button>
                             
+                            {/* Expanded Detail Rows */}
                             {isExpanded && (
-                              <div className="bg-[var(--surface-2)] px-3 py-1">
+                              <div className="bg-[var(--surface-2)] border-t border-[var(--content-15)]">
+                                {/* Detail Header */}
+                                <div className="px-5 py-2 grid grid-cols-12 gap-2 text-[11px] font-medium text-[var(--text-tertiary)] border-b border-[var(--content-15)]">
+                                  <div className="col-span-1">Race</div>
+                                  <div className="col-span-5">Horse</div>
+                                  <div className="col-span-3 text-right">Position</div>
+                                  <div className="col-span-3 text-right">Points</div>
+                                </div>
+                                
+                                {/* Detail Rows */}
                                 {ppEntries.map((entry, idx) => (
-                                  <div key={idx} className="grid grid-cols-12 gap-1 py-1.5 border-b border-[var(--content-15)] last:border-0 text-[11px]">
-                                    <div className="col-span-5 flex items-center gap-1">
-                                      <span className="text-[var(--text-tertiary)]">{track} R{entry.race}</span>
-                                      <span className="font-medium text-[var(--text-primary)] truncate">{entry.horseName}</span>
+                                  <div
+                                    key={`${key}-${idx}`}
+                                    className="px-5 py-2 grid grid-cols-12 gap-2 items-center text-[13px] border-b border-[var(--content-15)] last:border-b-0"
+                                  >
+                                    <div className="col-span-1 text-[var(--text-secondary)]">
+                                      {entry.race}
                                     </div>
-                                    <div className="col-span-2 text-right text-[var(--text-secondary)]">
-                                      ${(entry.salary || 0).toLocaleString()}
+                                    <div className="col-span-5 flex items-center gap-2">
+                                      <span className="font-medium text-[var(--text-primary)]">{entry.horseName}</span>
                                     </div>
-                                    <div className="col-span-2 text-right">
-                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
+                                    <div className="col-span-3 text-right">
+                                      <span className={`inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded text-[11px] font-semibold ${
                                         entry.position === 1 ? 'bg-green-100 text-green-800' :
                                         entry.position === 2 ? 'bg-blue-100 text-blue-800' :
                                         entry.position === 3 ? 'bg-red-100 text-red-800' :
                                         'bg-gray-100 text-gray-800'
                                       }`}>
-                                        {entry.position || '—'}
+                                        {entry.position ? `${entry.position}${entry.position === 1 ? 'st' : entry.position === 2 ? 'nd' : entry.position === 3 ? 'rd' : 'th'}` : '—'}
                                       </span>
                                     </div>
-                                    <div className="col-span-3 text-right text-[var(--text-secondary)]">
-                                      {(entry.totalPoints || 0).toFixed(1)} pts
+                                    <div className="col-span-3 text-right font-medium text-[var(--text-primary)]">
+                                      {(entry.totalPoints || 0).toFixed(2)}
                                     </div>
                                   </div>
                                 ))}
@@ -549,8 +562,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-        {/* Backdrop */}
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 pointer-events-auto" onClick={onClose} />
+        {/* Backdrop with blur */}
+        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto" onClick={onClose} />
         
         {/* Modal Container - Side by side with minimal gap */}
         <div className={`relative z-50 flex items-start justify-center gap-2 pointer-events-none pt-2 pb-2 ${is3Way ? 'px-2' : ''}`}>

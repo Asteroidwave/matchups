@@ -580,7 +580,7 @@ export default function MatchupsPage() {
                           </div>
                         </div>
                         <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} Correct</div>
-                        <div className="text-xs font-bold text-green-600">{scheduled?.standard}x</div>
+                        <div className="text-xs font-bold text-green-600">{computedMultiplier}x</div>
                       </button>
                       
                       {/* Flex Card */}
@@ -606,8 +606,8 @@ export default function MatchupsPage() {
                             {isFlex && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                           </div>
                         </div>
-                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} → {scheduled?.flexAllWin}x</div>
-                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount - 1} → {scheduled?.flexOneMiss}x</div>
+                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount} → {flexAllWinMultiplier}x</div>
+                        <div className="text-[10px] text-[var(--text-secondary)]">{selectedCount - 1} → {flexOneMissMultiplier}x</div>
                       </button>
                     </div>
                   </div>
