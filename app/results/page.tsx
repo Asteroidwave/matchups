@@ -19,7 +19,7 @@ export default function ResultsPage() {
   const [expandedRounds, setExpandedRounds] = useState<Set<string>>(new Set());
   const [selectedPick, setSelectedPick] = useState<{
     matchup: Matchup;
-    chosen: "A" | "B";
+    chosen: "A" | "B" | "C";
   } | null>(null);
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
   const [isConnectionModalOpen, setIsConnectionModalOpen] = useState(false);
@@ -96,8 +96,15 @@ export default function ResultsPage() {
     for (const pick of round.picks) {
       const matchup = round.matchups.find(m => m.id === pick.matchupId);
       if (matchup) {
-        const chosenSet = pick.chosen === "A" ? matchup.setA : matchup.setB;
-        connectionNames.push(...chosenSet.connections.map(c => c.name));
+        // Support 3-way matchups with setC
+        const chosenSet = pick.chosen === "A" 
+          ? matchup.setA 
+          : pick.chosen === "B" 
+            ? matchup.setB 
+            : matchup.setC;
+        if (chosenSet) {
+          connectionNames.push(...chosenSet.connections.map(c => c.name));
+        }
       }
     }
     
@@ -120,11 +127,18 @@ export default function ResultsPage() {
     for (const pick of round.picks) {
       const matchup = round.matchups.find(m => m.id === pick.matchupId);
       if (matchup) {
-        const chosenSet = pick.chosen === "A" ? matchup.setA : matchup.setB;
-        for (const conn of chosenSet.connections) {
-          if (!connIds.has(conn.id)) {
-            connIds.add(conn.id);
-            conns.push(conn);
+        // Support 3-way matchups
+        const chosenSet = pick.chosen === "A" 
+          ? matchup.setA 
+          : pick.chosen === "B" 
+            ? matchup.setB 
+            : matchup.setC;
+        if (chosenSet) {
+          for (const conn of chosenSet.connections) {
+            if (!connIds.has(conn.id)) {
+              connIds.add(conn.id);
+              conns.push(conn);
+            }
           }
         }
       }
@@ -241,9 +255,16 @@ export default function ResultsPage() {
                         
                         if (!matchup) return null;
                         
-                        const chosenSet = pick.chosen === "A" ? matchup.setA : matchup.setB;
+                        // Support 3-way matchups
+                        const chosenSet = pick.chosen === "A" 
+                          ? matchup.setA 
+                          : pick.chosen === "B" 
+                            ? matchup.setB 
+                            : matchup.setC;
+                        if (!chosenSet) return null;
                         const setPoints = chosenSet.connections.reduce((sum, c) => sum + c.pointsSum, 0);
                         const primaryName = chosenSet.connections[0]?.name || "Unknown";
+                        const is3Way = !!matchup.setC;
                         
                         return (
                           <div
@@ -261,8 +282,13 @@ export default function ResultsPage() {
                                 {result.won ? "✓" : "✗"}
                               </div>
                               <div className="flex-1">
-                                <div className="font-semibold text-[var(--text-primary)] mb-1">
-                                  Pick {idx + 1}: {primaryName}
+                                <div className="font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-2">
+                                  <span>Pick {idx + 1}: {primaryName}</span>
+                                  {is3Way && (
+                                    <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-600 border border-purple-500/30 rounded text-[10px] font-semibold">
+                                      1v1v1
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-sm text-[var(--text-secondary)]">
                                   Set {pick.chosen} • {setPoints.toFixed(1)} pts

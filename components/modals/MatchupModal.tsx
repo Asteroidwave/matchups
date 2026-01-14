@@ -8,7 +8,7 @@ import { useApp } from "@/contexts/AppContext";
 
 interface MatchupModalProps {
   readonly matchup: Matchup | null;
-  readonly selectedSet: "A" | "B";
+  readonly selectedSet: "A" | "B" | "C";
   readonly isOpen: boolean;
   readonly onClose: () => void;
 }
@@ -22,15 +22,20 @@ export function MatchupModal({
   const { connections } = useApp();
   const [selectedTrackA, setSelectedTrackA] = useState<Record<string, string | null>>({});
   const [selectedTrackB, setSelectedTrackB] = useState<Record<string, string | null>>({});
+  const [selectedTrackC, setSelectedTrackC] = useState<Record<string, string | null>>({});
   
   if (!matchup) return null;
   
+  const is3Way = !!matchup.setC && matchup.setC.connections.length > 0;
+  
   const setAPoints = setPoints(matchup.setA);
   const setBPoints = setPoints(matchup.setB);
+  const setCPoints = matchup.setC ? setPoints(matchup.setC) : 0;
   
   // Calculate Points/1K (points per 1K salary)
   const setAPointsPer1K = matchup.setA.salaryTotal > 0 ? (setAPoints / matchup.setA.salaryTotal) * 1000 : 0;
   const setBPointsPer1K = matchup.setB.salaryTotal > 0 ? (setBPoints / matchup.setB.salaryTotal) * 1000 : 0;
+  const setCPointsPer1K = matchup.setC && matchup.setC.salaryTotal > 0 ? (setCPoints / matchup.setC.salaryTotal) * 1000 : 0;
   
   const getPlaceColor = (place: number | undefined) => {
     if (!place) return "";
@@ -173,477 +178,219 @@ export function MatchupModal({
     }));
   };
   
+  const setTrackFilterC = (connId: string, track: string | null) => {
+    setSelectedTrackC((prev) => ({
+      ...prev,
+      [connId]: track,
+    }));
+  };
+  
+  // Helper function to render a set panel
+  const renderSetPanel = (
+    setSide: typeof matchup.setA, 
+    setLabel: "A" | "B" | "C", 
+    setPointsVal: number, 
+    pointsPer1K: number,
+    selectedTrackState: Record<string, string | null>,
+    setTrackFilter: (connId: string, track: string | null) => void
+  ) => (
+    <div className={`space-y-4 p-4 rounded-xl border-2 ${
+      selectedSet === setLabel ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
+    }`}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-bold">Set {setLabel}</h3>
+        {selectedSet === setLabel && (
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            Selected
+          </span>
+        )}
+      </div>
+      
+      {/* Summary Box */}
+      <div className="bg-gray-100 rounded-lg p-2 text-center">
+        <div className="text-xl font-bold text-blue-600 mb-2">
+          Total Points: {setPointsVal.toFixed(1)}
+        </div>
+        <div className="text-sm items-center text-center space-y-0.5">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-gray-600 w-[90px] text-right">Total Salary</span>
+            <span className="text-gray-600">:</span>
+            <span className="font-semibold text-gray-900 ml-1">${setSide.salaryTotal.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
+            <span className="text-gray-600">:</span>
+            <span className="font-semibold text-gray-900 ml-1">{pointsPer1K.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+      
+      {setSide.connections.map((conn) => {
+        const tracks = getConnectionTracks(conn);
+        const selectedTrack = selectedTrackState[conn.id] ?? null;
+        const filteredStarters = getFilteredStarters(conn, selectedTrack);
+        const filteredStats = getFilteredStats(conn, selectedTrack);
+        
+        return (
+          <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="font-bold text-base text-gray-900">{conn.name}</div>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                  conn.role === "jockey" ? "bg-blue-100 text-blue-800" :
+                  conn.role === "trainer" ? "bg-green-100 text-green-800" :
+                  "bg-amber-100 text-amber-800"
+                }`}>
+                  {conn.role.toUpperCase()}
+                </span>
+              </div>
+              
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Apps</div>
+                    <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
+                    <div className="font-bold text-sm text-gray-900">
+                      {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">AVPA (90D)</div>
+                    <div className="font-bold text-sm text-gray-900">
+                      {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-gray-200 pt-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Salary</div>
+                      <div className="font-bold text-sm text-gray-900">${filteredStats.salary.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Points</div>
+                      <div className="font-bold text-lg text-gray-900">{filteredStats.points.toFixed(1)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Points/1K$</div>
+                      <div className="font-bold text-lg text-gray-900">{filteredStats.pointsPer1K.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Top Finishes */}
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold text-gray-700">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
+                {tracks.length > 1 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => setTrackFilter(conn.id, null)}
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        selectedTrack === null
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {tracks.map((track) => (
+                      <button
+                        key={track}
+                        onClick={() => setTrackFilter(conn.id, track)}
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          selectedTrack === track
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {track}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Starters table - simplified for space */}
+              <div className="border border-gray-300 rounded-lg overflow-hidden bg-white max-h-48 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr className="border-b-2 border-gray-300">
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-gray-700">Horse</th>
+                      <th className="text-left py-2 px-2 text-xs font-semibold text-gray-700">Fin</th>
+                      <th className="text-right py-2 px-2 text-xs font-semibold text-gray-700">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredStarters.slice(0, 10).map((starter, idx) => {
+                      const raceKey = `${starter.track}-${starter.race}`;
+                      const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
+                      const racePostMap = postPositionsMap.get(raceKey);
+                      const post = racePostMap?.get(horseKey);
+                      
+                      return (
+                        <tr key={idx} className="border-b border-gray-200">
+                          <td className="py-1.5 px-2">
+                            <div className="flex items-center gap-1">
+                              <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-semibold ${
+                                post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
+                              }`}>
+                                {post || "—"}
+                              </span>
+                              <span className="text-xs font-medium text-gray-900 truncate max-w-20">{starter.horseName}</span>
+                            </div>
+                          </td>
+                          <td className="py-1.5 px-2">
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
+                              {starter.pos || "—"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-medium text-gray-900 text-xs">
+                            {starter.points?.toFixed(1) || "0"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogTitle className="text-2xl font-bold mb-4">Matchup Details</DialogTitle>
+      <DialogContent className={`${is3Way ? "max-w-7xl" : "max-w-6xl"} max-h-[90vh] overflow-y-auto`}>
+        <DialogTitle className="text-2xl font-bold mb-4 flex items-center gap-3">
+          Matchup Details
+          {is3Way && (
+            <span className="px-2 py-0.5 bg-purple-500/20 text-purple-600 border border-purple-500/30 rounded text-sm font-semibold">
+              1v1v1
+            </span>
+          )}
+        </DialogTitle>
         
-        <div className="grid grid-cols-2 gap-6">
+        <div className={`grid gap-4 ${is3Way ? "grid-cols-3" : "grid-cols-2"}`}>
           {/* Set A */}
-          <div className={`space-y-4 p-4 rounded-xl border-2 ${
-            selectedSet === "A" ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
-          }`}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold">Set A</h3>
-              {selectedSet === "A" && (
-                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  Selected
-                </span>
-              )}
-            </div>
-            
-            {/* Summary Box - Points more prominent */}
-            <div className="bg-gray-100 rounded-lg p-2 text-center">
-              <div className="text-xl font-bold text-blue-600 mb-2">
-                Total Points: {setAPoints.toFixed(1)}
-              </div>
-              <div className="text-sm items-center text-center space-y-0.5">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-gray-600 w-[90px] text-right">Total Salary</span>
-                  <span className="text-gray-600">:</span>
-                  <span className="font-semibold text-gray-900 ml-1">${matchup.setA.salaryTotal.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
-                  <span className="text-gray-600">:</span>
-                  <span className="font-semibold text-gray-900 ml-1">{setAPointsPer1K.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-            
-            {matchup.setA.connections.map((conn) => {
-              const tracks = getConnectionTracks(conn);
-              const selectedTrack = selectedTrackA[conn.id] ?? null;
-              const filteredStarters = getFilteredStarters(conn, selectedTrack);
-              const filteredStats = getFilteredStats(conn, selectedTrack);
-              
-              return (
-                <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
-                  {/* Connection Name and Role */}
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="font-bold text-base text-gray-900">{conn.name}</div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                        conn.role === "jockey" ? "bg-blue-100 text-blue-800" :
-                        conn.role === "trainer" ? "bg-green-100 text-green-800" :
-                        "bg-amber-100 text-amber-800"
-                      }`}>
-                        {conn.role.toUpperCase()}
-                      </span>
-                      {conn.trackSet.map((track) => {
-                        const trackColors: Record<string, string> = {
-                          BAQ: "bg-blue-500",
-                          GP: "bg-green-500",
-                          KEE: "bg-purple-500",
-                          SA: "bg-red-500",
-                        };
-                        return (
-                          <span key={track} className={`px-1 py-0.5 rounded text-[8px] font-bold text-white ${trackColors[track] || "bg-gray-500"}`}>
-                            {track}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    
-                    {/* Connection Details Box - Expanded with Stats */}
-                    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Apps</div>
-                          <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
-                          <div className="font-bold text-sm text-gray-900">
-                            {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">AVPA (30D)</div>
-                          <div className="font-bold text-sm text-gray-900">
-                            {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="border-t border-gray-200 pt-3">
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Salary</div>
-                            <div className="font-bold text-sm text-gray-900">${filteredStats.salary.toLocaleString()}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Points</div>
-                            <div className="font-bold text-lg text-gray-900">{filteredStats.points.toFixed(1)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Points/1K$</div>
-                            <div className="font-bold text-lg text-gray-900">{filteredStats.pointsPer1K.toFixed(2)}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Top Finishes - Larger table without scrolling */}
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs font-semibold text-gray-700">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
-                      {/* Track Filter Toggle */}
-                      {tracks.length > 1 && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            onClick={() => setTrackFilterA(conn.id, null)}
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              selectedTrack === null
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            All Tracks
-                          </button>
-                          {tracks.map((track) => (
-                            <button
-                              key={track}
-                              onClick={() => setTrackFilterA(conn.id, track)}
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                selectedTrack === track
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                              }`}
-                            >
-                              {track}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-gray-100 border-b-2 border-gray-300">
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Horse</th>
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Race</th>
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Finish</th>
-                            <th className="text-right py-2.5 px-3 text-xs font-semibold text-gray-700">Points</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            // Group starters by track
-                            const groupedByTrack = new Map<string, typeof filteredStarters>();
-                            for (const starter of filteredStarters) {
-                              if (!groupedByTrack.has(starter.track)) {
-                                groupedByTrack.set(starter.track, []);
-                              }
-                              groupedByTrack.get(starter.track)!.push(starter);
-                            }
-                            
-                            const trackList = Array.from(groupedByTrack.keys());
-                            const result: JSX.Element[] = [];
-                            
-                            trackList.forEach((track, trackIdx) => {
-                              const starters = groupedByTrack.get(track)!;
-                              
-                              // Add separator row (except for first track)
-                              if (trackIdx > 0) {
-                                result.push(
-                                  <tr key={`separator-${track}`} className="bg-gray-50">
-                                    <td colSpan={4} className="py-2 px-3">
-                                      <div className="h-px bg-gray-300"></div>
-                                    </td>
-                                  </tr>
-                                );
-                              }
-                              
-                              // Add track header
-                              result.push(
-                                <tr key={`header-${track}`} className="bg-gray-100">
-                                  <td colSpan={4} className="py-2 px-3 font-bold text-gray-800 text-sm">
-                                    {track}
-                                  </td>
-                                </tr>
-                              );
-                              
-                              // Add starters for this track
-                              starters.forEach((starter, idx) => {
-                                const raceKey = `${starter.track}-${starter.race}`;
-                                const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                                const racePostMap = postPositionsMap.get(raceKey);
-                                const post = racePostMap?.get(horseKey);
-                                
-                                result.push(
-                                  <tr key={`${track}-${idx}`} className={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <td className="py-2.5 px-3">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${
-                                          post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                        }`}>
-                                          {post || "—"}
-                                        </span>
-                                        <span className="text-[12px] leading-[18px] text-gray-600 font-medium">{starter.mlOddsFrac || "—"}</span>
-                                        <span className="text-[12px] leading-[18px] font-semibold text-gray-900">{starter.horseName}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-gray-600 text-sm">R{starter.race}</td>
-                                    <td className="py-2.5 px-3">
-                                      <span className={`px-2 py-1 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
-                                        {starter.pos || "—"}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-medium text-gray-900 text-sm">
-                                      {starter.points?.toFixed(2) || "0.00"}
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            });
-                            
-                            return result;
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {renderSetPanel(matchup.setA, "A", setAPoints, setAPointsPer1K, selectedTrackA, setTrackFilterA)}
           
           {/* Set B */}
-          <div className={`space-y-4 p-4 rounded-xl border-2 ${
-            selectedSet === "B" ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"
-          }`}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold">Set B</h3>
-              {selectedSet === "B" && (
-                <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                  Selected
-                </span>
-              )}
-            </div>
-            
-            {/* Summary Box - Points more prominent */}
-            <div className="bg-gray-100 rounded-lg p-2 text-center">
-              <div className="text-xl font-bold text-blue-600 mb-2">
-                Total Points: {setBPoints.toFixed(1)}
-              </div>
-              <div className="text-sm items-center text-center space-y-0.5">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-gray-600 w-[90px] text-right">Total Salary</span>
-                  <span className="text-gray-600">:</span>
-                  <span className="font-semibold text-gray-900 ml-1">${matchup.setB.salaryTotal.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-gray-600 w-[90px] text-right">Points/$1K</span>
-                  <span className="text-gray-600">:</span>
-                  <span className="font-semibold text-gray-900 ml-1">{setBPointsPer1K.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-            
-            {matchup.setB.connections.map((conn) => {
-              const tracks = getConnectionTracks(conn);
-              const selectedTrack = selectedTrackB[conn.id] ?? null;
-              const filteredStarters = getFilteredStarters(conn, selectedTrack);
-              const filteredStats = getFilteredStats(conn, selectedTrack);
-              
-              return (
-                <div key={conn.id} className="border border-gray-200 rounded-lg p-3 bg-white">
-                  {/* Connection Name and Role */}
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="font-bold text-base text-gray-900">{conn.name}</div>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                        conn.role === "jockey" ? "bg-blue-100 text-blue-800" :
-                        conn.role === "trainer" ? "bg-green-100 text-green-800" :
-                        "bg-amber-100 text-amber-800"
-                      }`}>
-                        {conn.role.toUpperCase()}
-                      </span>
-                      {conn.trackSet.map((track) => {
-                        const trackColors: Record<string, string> = {
-                          BAQ: "bg-blue-500",
-                          GP: "bg-green-500",
-                          KEE: "bg-purple-500",
-                          SA: "bg-red-500",
-                        };
-                        return (
-                          <span key={track} className={`px-1 py-0.5 rounded text-[8px] font-bold text-white ${trackColors[track] || "bg-gray-500"}`}>
-                            {track}
-                          </span>
-                        );
-                      })}
-                    </div>
-                    
-                    {/* Connection Details Box - Expanded with Stats */}
-                    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Apps</div>
-                          <div className="font-bold text-sm text-gray-900">{filteredStats.apps}</div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Avg Odds</div>
-                          <div className="font-bold text-sm text-gray-900">
-                            {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">AVPA (30D)</div>
-                          <div className="font-bold text-sm text-gray-900">
-                            {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="border-t border-gray-200 pt-3">
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Salary</div>
-                            <div className="font-bold text-sm text-gray-900">${filteredStats.salary.toLocaleString()}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Points</div>
-                            <div className="font-bold text-lg text-gray-900">{filteredStats.points.toFixed(1)}</div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Points/1K$</div>
-                            <div className="font-bold text-lg text-gray-900">{filteredStats.pointsPer1K.toFixed(2)}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Top Finishes - Larger table without scrolling */}
-                  <div className="mt-2 pt-2 border-t border-gray-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs font-semibold text-gray-700">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
-                      {/* Track Filter Toggle */}
-                      {tracks.length > 1 && (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            onClick={() => setTrackFilterB(conn.id, null)}
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              selectedTrack === null
-                                ? "bg-blue-600 text-white"
-                                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            }`}
-                          >
-                            All Tracks
-                          </button>
-                          {tracks.map((track) => (
-                            <button
-                              key={track}
-                              onClick={() => setTrackFilterB(conn.id, track)}
-                              className={`px-2 py-1 rounded text-xs font-medium ${
-                                selectedTrack === track
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                              }`}
-                            >
-                              {track}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-gray-100 border-b-2 border-gray-300">
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Horse</th>
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Race</th>
-                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-700">Finish</th>
-                            <th className="text-right py-2.5 px-3 text-xs font-semibold text-gray-700">Points</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            // Group starters by track
-                            const groupedByTrack = new Map<string, typeof filteredStarters>();
-                            for (const starter of filteredStarters) {
-                              if (!groupedByTrack.has(starter.track)) {
-                                groupedByTrack.set(starter.track, []);
-                              }
-                              groupedByTrack.get(starter.track)!.push(starter);
-                            }
-                            
-                            const trackList = Array.from(groupedByTrack.keys());
-                            const result: JSX.Element[] = [];
-                            
-                            trackList.forEach((track, trackIdx) => {
-                              const starters = groupedByTrack.get(track)!;
-                              
-                              // Add separator row (except for first track)
-                              if (trackIdx > 0) {
-                                result.push(
-                                  <tr key={`separator-${track}`} className="bg-gray-50">
-                                    <td colSpan={4} className="py-2 px-3">
-                                      <div className="h-px bg-gray-300"></div>
-                                    </td>
-                                  </tr>
-                                );
-                              }
-                              
-                              // Add track header
-                              result.push(
-                                <tr key={`header-${track}`} className="bg-gray-100">
-                                  <td colSpan={4} className="py-2 px-3 font-bold text-gray-800 text-sm">
-                                    {track}
-                                  </td>
-                                </tr>
-                              );
-                              
-                              // Add starters for this track
-                              starters.forEach((starter, idx) => {
-                                const raceKey = `${starter.track}-${starter.race}`;
-                                const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                                const racePostMap = postPositionsMap.get(raceKey);
-                                const post = racePostMap?.get(horseKey);
-                                
-                                result.push(
-                                  <tr key={`${track}-${idx}`} className={`border-b border-gray-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <td className="py-2.5 px-3">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] leading-[18px] font-semibold ${
-                                          post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                        }`}>
-                                          {post || "—"}
-                                        </span>
-                                        <span className="text-[12px] leading-[18px] text-gray-600 font-medium">{starter.mlOddsFrac || "—"}</span>
-                                        <span className="text-[12px] leading-[18px] font-semibold text-gray-900">{starter.horseName}</span>
-                                      </div>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-gray-600 text-sm">R{starter.race}</td>
-                                    <td className="py-2.5 px-3">
-                                      <span className={`px-2 py-1 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
-                                        {starter.pos || "—"}
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-medium text-gray-900 text-sm">
-                                      {starter.points?.toFixed(2) || "0.00"}
-                                    </td>
-                                  </tr>
-                                );
-                              });
-                            });
-                            
-                            return result;
-                          })()}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {renderSetPanel(matchup.setB, "B", setBPoints, setBPointsPer1K, selectedTrackB, setTrackFilterB)}
+          
+          {/* Set C (only for 3-way) */}
+          {is3Way && matchup.setC && renderSetPanel(matchup.setC, "C", setCPoints, setCPointsPer1K, selectedTrackC, setTrackFilterC)}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+
