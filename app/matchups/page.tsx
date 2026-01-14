@@ -7,7 +7,6 @@ import { MatchupCard } from "@/components/cards/MatchupCard";
 import { ConnectionModal } from "@/components/modals/ConnectionModal";
 import { ComparisonModal } from "@/components/modals/ComparisonModal";
 import { StartersWindow } from "@/components/windows/StartersWindow";
-import { TrackDatePicker, TrackDateButton } from "@/components/TrackDatePicker";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,7 +45,6 @@ export default function MatchupsPage() {
   const [selectedMatchupForComparison, setSelectedMatchupForComparison] = useState<Matchup | null>(null);
   const [entryAmount, setEntryAmount] = useState<string>("");
   const [isFlex, setIsFlex] = useState<boolean>(false);
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState<"all" | "jockey" | "trainer" | "sire" | "mixed">("all");
   const [sortBy, setSortBy] = useState<"none" | "salary-high" | "salary-low" | "apps-high" | "apps-low" | "avpa-high" | "avpa-low">("none");
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -375,15 +373,7 @@ export default function MatchupsPage() {
             {/* Header - Same line as other panels */}
             <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <h1 className="text-2xl font-bold text-[var(--text-primary)]">Players</h1>
-                  {/* Track and Date Selector */}
-                  <TrackDateButton
-                    selectedTracks={selectedTracks}
-                    selectedDate={selectedDate}
-                    onClick={() => setIsDatePickerOpen(true)}
-                  />
-                </div>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Players</h1>
                 <Button
                   onClick={() => regenerateMatchups({ tolerance })}
                   variant="outline"
@@ -679,18 +669,6 @@ export default function MatchupsPage() {
           setIsComparisonModalOpen(false);
           setSelectedMatchupForComparison(null);
         }}
-      />
-      
-      {/* Track Date Picker Modal */}
-      <TrackDatePicker
-        availableTracks={availableTracks}
-        selectedTracks={selectedTracks}
-        selectedDate={selectedDate}
-        onTracksChange={setSelectedTracks}
-        onDateChange={setSelectedDate}
-        isOpen={isDatePickerOpen}
-        onClose={() => setIsDatePickerOpen(false)}
-        maxTracks={3}
       />
     </div>
   );

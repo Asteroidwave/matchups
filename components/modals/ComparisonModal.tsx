@@ -36,8 +36,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   ) => {
     const scrollRef = setId === "A" ? scrollRefA : setId === "B" ? scrollRefB : scrollRefC;
     
-    // For 3-way matchups, use slightly wider modals to prevent cutoff
-    const modalWidth = is3Way ? "w-[480px]" : "w-[620px]";
+    // For 3-way matchups, use wider modals to prevent salary cutoff
+    const modalWidth = is3Way ? "w-[520px]" : "w-[640px]";
     // Background color for the header based on role (single color)
     const headerBg = {
       jockey: "bg-blue-600",
@@ -125,9 +125,9 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '63vh', height: '63vh', pointerEvents: 'auto' }}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ maxHeight: '75vh', height: '75vh', pointerEvents: 'auto' }}>
         {/* Header - Single color design with overlapping circle */}
-        <div className={`relative h-[162px] ${headerBg} text-white flex-shrink-0`}>
+        <div className={`relative ${is3Way ? 'h-[140px]' : 'h-[162px]'} ${headerBg} text-white flex-shrink-0`}>
           <button
             onClick={onClose}
             className="absolute top-5 right-4 text-white hover:bg-white/20 rounded-full p-1 transition-colors z-10"
@@ -394,8 +394,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         {/* Backdrop */}
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/30 pointer-events-auto" onClick={onClose} />
         
-        {/* Modal Container - Side by side with gap */}
-        <div className={`relative z-50 flex items-start justify-center gap-3 pointer-events-none pt-8 pb-8 ${is3Way ? 'px-4' : ''}`}>
+        {/* Modal Container - Side by side with minimal gap */}
+        <div className={`relative z-50 flex items-start justify-center gap-2 pointer-events-none pt-4 pb-4 ${is3Way ? 'px-2' : ''}`}>
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
             <div className="pointer-events-auto">

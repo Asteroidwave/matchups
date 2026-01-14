@@ -483,7 +483,7 @@ export function StartersWindow({
                   return (
                     <div
                       key={`${starter.track}-${starter.race}-${starter.horseName}`}
-                      className={`border-b border-[var(--content-15)] flex items-center gap-3 pl-5 pr-0 py-1 ${idx === starters.length - 1 ? "" : ""}`}
+                      className={`border-b border-[var(--border)] flex items-center gap-3 pl-5 pr-2 py-2 hover:bg-[var(--surface-hover)] transition-colors ${idx === starters.length - 1 ? "" : ""}`}
                     >
                       {/* Left block: PP + odds + horse name */}
                       <div className="w-[132px] shrink-0 flex flex-col gap-2">
