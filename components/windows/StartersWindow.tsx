@@ -171,41 +171,30 @@ export function StartersWindow({
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
   
-  // Build base starters (only track/date filters, no player filters)
+  // Build base starters (track/date filters only)
   const baseStarters: Starter[] = [];
   for (const conn of connections) {
-    // If "Connected Horses" view is active, only show connections that are in matchups
-    if (viewMode === "connected" && !selectedConnection && !matchupConnectionIds.has(conn.id)) {
-      continue;
-    }
-
+    if (viewMode === "connected" && !selectedConnection && !matchupConnectionIds.has(conn.id)) continue;
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
-      
-      // Date filter (respect selectedDate if provided)
-      if (selectedDate && starter.date && starter.date !== selectedDate) {
-        continue;
-      }
-      
-      // Track filters
+      if (selectedDate && starter.date && starter.date !== selectedDate) continue;
       if (activeTrackFilter !== "ALL") {
         if (starter.track !== activeTrackFilter) continue;
       } else if (selectedTracks.length > 0) {
         if (!selectedTracks.includes(starter.track)) continue;
       }
-
       baseStarters.push({ ...starter });
     }
   }
 
-  // Assign post positions based on base starters per race
+  // Full races (no player filters) with post positions
   const fullRaceMap = new Map<string, Starter[]>();
   for (const starter of baseStarters) {
     const key = `${starter.track}-${starter.race}`;
     if (!fullRaceMap.has(key)) fullRaceMap.set(key, []);
     fullRaceMap.get(key)!.push(starter);
   }
-  for (const [, starters] of fullRaceMap.entries()) {
+  for (const [key, starters] of fullRaceMap.entries()) {
     const seen = new Set<string>();
     const ordered: Starter[] = [];
     for (const s of starters) {
@@ -218,12 +207,11 @@ export function StartersWindow({
       // @ts-expect-error transient field used in view only
       s.__post = post++;
     }
-    // replace with ordered to keep first-seen order
-    fullRaceMap.set(`${ordered[0].track}-${ordered[0].race}`, ordered);
+    fullRaceMap.set(key, ordered);
   }
 
-  // Apply player filters to base starters
-  const filteredStarters: (Starter & { connectionType?: "jockey" | "trainer" | "sire"; connectionName?: string })[] = [];
+  // Apply player filters
+  const filteredStarters: Starter[] = [];
   for (const starter of baseStarters) {
     const hasMultiSelectFilter = filterState.selectedPlayers.length > 0;
     const hasSingleSelectFilter = selectedConnection !== null;
@@ -247,8 +235,8 @@ export function StartersWindow({
     filteredStarters.push(starter);
   }
 
-  // Group filtered starters by race
-  const filteredRacesMap = new Map<string, typeof filteredStarters>();
+  // Group filtered starters
+  const filteredRacesMap = new Map<string, Starter[]>();
   for (const starter of filteredStarters) {
     const key = `${starter.track}-${starter.race}`;
     if (!filteredRacesMap.has(key)) filteredRacesMap.set(key, []);
@@ -264,7 +252,10 @@ export function StartersWindow({
       return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
     });
 
-  const races = sortRaces(Array.from(filteredRacesMap.entries()));
+  // Use full race ordering; render races that have filtered starters
+  const races = sortRaces(Array.from(fullRaceMap.entries()))
+    .filter(([key]) => filteredRacesMap.has(key))
+    .map(([key]) => [key, filteredRacesMap.get(key)!] as [string, Starter[]]);
  
   const getPostBadge = (post?: number) => {
     if (!post) return "bg-gray-300 text-gray-700";
