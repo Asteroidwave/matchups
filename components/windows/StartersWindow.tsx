@@ -182,6 +182,11 @@ export function StartersWindow({
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
       
+      // Date filter (respect selectedDate if provided)
+      if (selectedDate && starter.date && starter.date !== selectedDate) {
+        continue;
+      }
+      
       // Track filters
       if (activeTrackFilter !== "ALL") {
         if (starter.track !== activeTrackFilter) continue;
@@ -254,7 +259,7 @@ export function StartersWindow({
     entries.sort(([a], [b]) => {
       const [trackA, raceA] = a.split("-");
       const [trackB, raceB] = b.split("-");
-      const trackOrder = ["BAQ", "GP", "KEE", "SA"];
+      const trackOrder = ["AQU","BAQ","SA","DMR","GP","PRX","PEN","LRL","MVR","KEE","GPW","TAM","LRC"];
       const trackDiff = trackOrder.indexOf(trackA) - trackOrder.indexOf(trackB);
       return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
     });
