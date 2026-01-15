@@ -210,220 +210,220 @@ export function MatchupModal({
     const connectionsToShow = hasMultipleConnections 
       ? [setSide.connections[connectionIndex]] 
       : setSide.connections;
-    
-    return (
-      <div className={`space-y-4 p-4 rounded-xl border-2 ${
+  
+  return (
+          <div className={`space-y-4 p-4 rounded-xl border-2 ${
         selectedSet === setLabel 
           ? "border-[var(--brand)] bg-[var(--blue-50)]" 
           : "border-[var(--content-15)] bg-[var(--surface-1)]"
-      }`}>
-        <div className="flex items-center justify-between">
+          }`}>
+            <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-xl font-bold text-[var(--text-primary)]">Set {setLabel}</h3>
             {hasMultipleConnections && (
               <span className="text-xs text-[var(--text-tertiary)]">
                 ({totalConnections} connections)
-              </span>
-            )}
-          </div>
+                </span>
+              )}
+            </div>
           <div className="flex items-center gap-2">
             {/* Navigation arrows for multi-connection sets */}
             {hasMultipleConnections && (
               <div className="flex items-center gap-1">
-                <button
+                          <button
                   onClick={() => setConnectionIndex(connectionIndex - 1)}
                   disabled={!canGoPrev}
                   className={`p-1 rounded transition-colors ${
                     canGoPrev 
                       ? 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]' 
                       : 'text-[var(--text-muted)] cursor-not-allowed'
-                  }`}
-                >
+                            }`}
+                          >
                   <ChevronLeft className="w-4 h-4" />
-                </button>
+                          </button>
                 <span className="text-xs text-[var(--text-secondary)] min-w-[30px] text-center">
                   {connectionIndex + 1}/{totalConnections}
                 </span>
-                <button
+                            <button
                   onClick={() => setConnectionIndex(connectionIndex + 1)}
                   disabled={!canGoNext}
                   className={`p-1 rounded transition-colors ${
                     canGoNext 
                       ? 'hover:bg-[var(--surface-hover)] text-[var(--text-primary)]' 
                       : 'text-[var(--text-muted)] cursor-not-allowed'
-                  }`}
-                >
+                              }`}
+                            >
                   <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+                            </button>
+                        </div>
+                      )}
             {selectedSet === setLabel && (
               <span className="bg-[var(--brand)] text-white px-3 py-1 rounded-full text-sm font-semibold">
-                Selected
-              </span>
-            )}
+                  Selected
+                </span>
+              )}
           </div>
-        </div>
-        
+            </div>
+            
         {/* Summary Box */}
         <div className="bg-[var(--surface-2)] rounded-lg p-2 text-center">
           <div className="text-xl font-bold text-[var(--brand)] mb-2">
             Total Points: {setPointsVal.toFixed(1)}
-          </div>
-          <div className="text-sm items-center text-center space-y-0.5">
-            <div className="flex items-center justify-center gap-2">
+              </div>
+              <div className="text-sm items-center text-center space-y-0.5">
+                <div className="flex items-center justify-center gap-2">
               <span className="text-[var(--text-secondary)] w-[90px] text-right">Total Salary</span>
               <span className="text-[var(--text-secondary)]">:</span>
               <span className="font-semibold text-[var(--text-primary)] ml-1">${setSide.salaryTotal.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center justify-center gap-2">
+                </div>
+                <div className="flex items-center justify-center gap-2">
               <span className="text-[var(--text-secondary)] w-[90px] text-right">Points/$1K</span>
               <span className="text-[var(--text-secondary)]">:</span>
               <span className="font-semibold text-[var(--text-primary)] ml-1">{pointsPer1K.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        
+            
         {connectionsToShow.map((conn) => {
-        const tracks = getConnectionTracks(conn);
+              const tracks = getConnectionTracks(conn);
         const selectedTrack = selectedTrackState[conn.id] ?? null;
-        const filteredStarters = getFilteredStarters(conn, selectedTrack);
-        const filteredStats = getFilteredStats(conn, selectedTrack);
-        
-        return (
+              const filteredStarters = getFilteredStarters(conn, selectedTrack);
+              const filteredStats = getFilteredStats(conn, selectedTrack);
+              
+              return (
           <div key={conn.id} className="border border-[var(--content-15)] rounded-lg p-3 bg-[var(--surface-1)]">
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-2">
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-2">
                 <div className="font-bold text-base text-[var(--text-primary)]">{conn.name}</div>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${
                   conn.role === "jockey" ? "bg-[var(--jockey)]" :
                   conn.role === "trainer" ? "bg-[var(--trainer)]" :
                   "bg-[var(--sire)]"
-                }`}>
-                  {conn.role.toUpperCase()}
-                </span>
-              </div>
-              
+                      }`}>
+                        {conn.role.toUpperCase()}
+                      </span>
+                    </div>
+                    
               <div className="border border-[var(--content-15)] rounded-lg p-3 bg-[var(--surface-2)]">
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div>
                     <div className="text-xs text-[var(--text-tertiary)] mb-1">Apps</div>
                     <div className="font-bold text-sm text-[var(--text-primary)]">{filteredStats.apps}</div>
-                  </div>
-                  <div>
+                        </div>
+                        <div>
                     <div className="text-xs text-[var(--text-tertiary)] mb-1">Avg Odds</div>
                     <div className="font-bold text-sm text-[var(--text-primary)]">
-                      {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
-                    </div>
-                  </div>
-                  <div>
+                            {filteredStats.avgOdds > 0 ? filteredStats.avgOdds.toFixed(1) : "—"}
+                          </div>
+                        </div>
+                        <div>
                     <div className="text-xs text-[var(--text-tertiary)] mb-1">AVPA (90D)</div>
                     <div className="font-bold text-sm text-[var(--text-primary)]">
-                      {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
-                    </div>
-                  </div>
-                </div>
-                
+                            {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
+                          </div>
+                        </div>
+                      </div>
+                      
                 <div className="border-t border-[var(--content-15)] pt-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
                       <div className="text-xs text-[var(--text-tertiary)] mb-1">Salary</div>
                       <div className="font-bold text-sm text-[var(--text-primary)]">${filteredStats.salary.toLocaleString()}</div>
-                    </div>
-                    <div>
+                          </div>
+                          <div>
                       <div className="text-xs text-[var(--text-tertiary)] mb-1">Points</div>
                       <div className="font-bold text-lg text-[var(--text-primary)]">{filteredStats.points.toFixed(1)}</div>
-                    </div>
-                    <div>
+                          </div>
+                          <div>
                       <div className="text-xs text-[var(--text-tertiary)] mb-1">Points/1K$</div>
                       <div className="font-bold text-lg text-[var(--text-primary)]">{filteredStats.pointsPer1K.toFixed(2)}</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            
+                  
             {/* Top Finishes */}
             <div className="mt-2 pt-2 border-t border-[var(--content-15)]">
-              <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold text-[var(--text-secondary)]">Top Finishes{tracks.length === 1 ? `: ${tracks[0]}` : ":"}</div>
-                {tracks.length > 1 && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
+                      {tracks.length > 1 && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
                       onClick={() => setTrackFilter(conn.id, null)}
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        selectedTrack === null
+                            className={`px-2 py-1 rounded text-xs font-medium ${
+                              selectedTrack === null
                           ? "bg-[var(--brand)] text-white"
                           : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
-                      }`}
-                    >
+                            }`}
+                          >
                       All
-                    </button>
-                    {tracks.map((track) => (
-                      <button
-                        key={track}
+                          </button>
+                          {tracks.map((track) => (
+                            <button
+                              key={track}
                         onClick={() => setTrackFilter(conn.id, track)}
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          selectedTrack === track
+                              className={`px-2 py-1 rounded text-xs font-medium ${
+                                selectedTrack === track
                             ? "bg-[var(--brand)] text-white"
                             : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
-                        }`}
-                      >
-                        {track}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              
+                              }`}
+                            >
+                              {track}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
               {/* Starters table - simplified for space */}
               <div className="border border-[var(--content-15)] rounded-lg overflow-hidden bg-[var(--surface-1)] max-h-48 overflow-y-auto">
-                <table className="w-full text-sm">
+                      <table className="w-full text-sm">
                   <thead className="bg-[var(--surface-2)] sticky top-0">
                     <tr className="border-b-2 border-[var(--content-15)]">
                       <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Horse</th>
                       <th className="text-left py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Fin</th>
                       <th className="text-right py-2 px-2 text-xs font-semibold text-[var(--text-secondary)]">Pts</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                          </tr>
+                        </thead>
+                        <tbody>
                     {filteredStarters.slice(0, 10).map((starter, idx) => {
-                      const raceKey = `${starter.track}-${starter.race}`;
-                      const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                      const racePostMap = postPositionsMap.get(raceKey);
-                      const post = racePostMap?.get(horseKey);
-                      
+                                const raceKey = `${starter.track}-${starter.race}`;
+                                const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
+                                const racePostMap = postPositionsMap.get(raceKey);
+                                const post = racePostMap?.get(horseKey);
+                                
                       return (
                         <tr key={idx} className="border-b border-[var(--content-15)]">
                           <td className="py-1.5 px-2">
                             <div className="flex items-center gap-1">
                               <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-semibold ${
-                                post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                              }`}>
-                                {post || "—"}
-                              </span>
+                                          post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
+                                        }`}>
+                                          {post || "—"}
+                                        </span>
                               <span className="text-xs font-medium text-[var(--text-primary)] truncate max-w-20">{starter.horseName}</span>
-                            </div>
-                          </td>
+                                      </div>
+                                    </td>
                           <td className="py-1.5 px-2">
                             <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getPlaceColor(starter.pos)}`}>
-                              {starter.pos || "—"}
-                            </span>
-                          </td>
+                                        {starter.pos || "—"}
+                                      </span>
+                                    </td>
                           <td className="py-1.5 px-2 text-right font-medium text-[var(--text-primary)] text-xs">
                             {starter.points?.toFixed(1) || "0"}
-                          </td>
-                        </tr>
-                      );
+                                    </td>
+                                  </tr>
+                                );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
-      </div>
     );
   };
   

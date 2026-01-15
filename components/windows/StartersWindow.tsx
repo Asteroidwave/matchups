@@ -171,76 +171,100 @@ export function StartersWindow({
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   };
   
-  // Build base starters (track/date filters only)
-  const baseStarters: Starter[] = [];
+  // Build a master map of all unique horses per race (deduped by horse name)
+  // First, collect all starters from all connections, apply track/date filters
+  const allStartersRaw: Starter[] = [];
+  const connectedHorseNames = new Set<string>(); // horses connected to matchup connections
+  
   for (const conn of connections) {
-    if (viewMode === "connected" && !selectedConnection && !matchupConnectionIds.has(conn.id)) continue;
+    const isInMatchup = matchupConnectionIds.has(conn.id);
+    
     for (const starter of conn.starters) {
       if (starter.scratched) continue;
-      if (selectedDate && starter.date && starter.date !== selectedDate) continue;
+      
+      // Date filter (respect selectedDate if provided)
+      if (selectedDate && starter.date && starter.date !== selectedDate) {
+        continue;
+      }
+      
+      // Track filters
       if (activeTrackFilter !== "ALL") {
         if (starter.track !== activeTrackFilter) continue;
       } else if (selectedTracks.length > 0) {
         if (!selectedTracks.includes(starter.track)) continue;
       }
-      baseStarters.push({ ...starter });
+
+      allStartersRaw.push({ ...starter });
+      
+      if (isInMatchup) {
+        connectedHorseNames.add(starter.horseName);
+      }
     }
   }
 
-  // Full races (no player filters) with post positions
+  // Dedupe and assign post positions
   const fullRaceMap = new Map<string, Starter[]>();
-  for (const starter of baseStarters) {
-    const key = `${starter.track}-${starter.race}`;
-    if (!fullRaceMap.has(key)) fullRaceMap.set(key, []);
-    fullRaceMap.get(key)!.push(starter);
-  }
-  for (const [key, starters] of fullRaceMap.entries()) {
-    const seen = new Set<string>();
-    const ordered: Starter[] = [];
-    for (const s of starters) {
-      if (seen.has(s.horseName)) continue;
-      seen.add(s.horseName);
-      ordered.push(s);
+  const horseSeenGlobal = new Map<string, Starter>(); // track -> race -> horseName -> starter
+  
+  for (const starter of allStartersRaw) {
+    const raceKey = `${starter.track}-${starter.race}`;
+    const horseKey = `${raceKey}-${starter.horseName}`;
+    
+    // Only add if we haven't seen this horse in this race yet
+    if (!horseSeenGlobal.has(horseKey)) {
+      horseSeenGlobal.set(horseKey, starter);
+      if (!fullRaceMap.has(raceKey)) fullRaceMap.set(raceKey, []);
+      fullRaceMap.get(raceKey)!.push(starter);
     }
+  }
+  
+  // Assign post positions to each race
+  for (const [raceKey, starters] of fullRaceMap.entries()) {
     let post = 1;
-    for (const s of ordered) {
+    for (const s of starters) {
       // @ts-expect-error transient field used in view only
       s.__post = post++;
     }
-    fullRaceMap.set(key, ordered);
   }
 
-  // Apply player filters
-  const filteredStarters: Starter[] = [];
-  for (const starter of baseStarters) {
-    const hasMultiSelectFilter = filterState.selectedPlayers.length > 0;
-    const hasSingleSelectFilter = selectedConnection !== null;
-
-    if (hasMultiSelectFilter) {
-      const matchesAnySelected = filterState.selectedPlayers.some(player => {
-        if (player.role === "jockey" && starter.jockey === player.name) return true;
-        if (player.role === "trainer" && starter.trainer === player.name) return true;
-        if (player.role === "sire" && (starter.sire1 === player.name || starter.sire2 === player.name)) return true;
-        return false;
-      });
-      if (!matchesAnySelected) continue;
-    } else if (hasSingleSelectFilter) {
-      const matchesConnection = 
-        (selectedConnection!.role === "jockey" && starter.jockey === selectedConnection!.name) ||
-        (selectedConnection!.role === "trainer" && starter.trainer === selectedConnection!.name) ||
-        (selectedConnection!.role === "sire" && (starter.sire1 === selectedConnection!.name || starter.sire2 === selectedConnection!.name));
-      if (!matchesConnection) continue;
-    }
-
-    filteredStarters.push(starter);
-  }
-
-  // Group filtered starters
+  // Now filter based on view mode and player filters
   const filteredRacesMap = new Map<string, Starter[]>();
-  for (const starter of filteredStarters) {
-    const key = `${starter.track}-${starter.race}`;
-    if (!filteredRacesMap.has(key)) filteredRacesMap.set(key, []);
-    filteredRacesMap.get(key)!.push(starter);
+  
+  for (const [raceKey, starters] of fullRaceMap.entries()) {
+    const filteredInRace: Starter[] = [];
+    
+    for (const starter of starters) {
+      // If "Connected Horses" view is active, only show horses connected to matchups
+      if (viewMode === "connected" && !selectedConnection && !hasMultiSelectFilters) {
+        if (!connectedHorseNames.has(starter.horseName)) continue;
+      }
+      
+      // Apply player filters
+      const hasMultiSelectFilter = filterState.selectedPlayers.length > 0;
+      const hasSingleSelectFilter = selectedConnection !== null;
+
+      if (hasMultiSelectFilter) {
+        const matchesAnySelected = filterState.selectedPlayers.some(player => {
+          if (player.role === "jockey" && starter.jockey === player.name) return true;
+          if (player.role === "trainer" && starter.trainer === player.name) return true;
+          if (player.role === "sire" && (starter.sire1 === player.name || starter.sire2 === player.name)) return true;
+          return false;
+        });
+        if (!matchesAnySelected) continue;
+      } else if (hasSingleSelectFilter) {
+        const matchesConnection = 
+          (selectedConnection!.role === "jockey" && starter.jockey === selectedConnection!.name) ||
+          (selectedConnection!.role === "trainer" && starter.trainer === selectedConnection!.name) ||
+          (selectedConnection!.role === "sire" && (starter.sire1 === selectedConnection!.name || starter.sire2 === selectedConnection!.name));
+        if (!matchesConnection) continue;
+      }
+
+      filteredInRace.push(starter);
+    }
+    
+    if (filteredInRace.length > 0) {
+      filteredRacesMap.set(raceKey, filteredInRace);
+    }
   }
 
   const sortRaces = (entries: [string, Starter[]][]) =>
@@ -252,10 +276,7 @@ export function StartersWindow({
       return trackDiff !== 0 ? trackDiff : Number.parseInt(raceA) - Number.parseInt(raceB);
     });
 
-  // Use full race ordering; render races that have filtered starters
-  const races = sortRaces(Array.from(fullRaceMap.entries()))
-    .filter(([key]) => filteredRacesMap.has(key))
-    .map(([key]) => [key, filteredRacesMap.get(key)!] as [string, Starter[]]);
+  const races = sortRaces(Array.from(filteredRacesMap.entries()));
  
   const getPostBadge = (post?: number) => {
     if (!post) return "bg-gray-300 text-gray-700";
@@ -449,7 +470,7 @@ export function StartersWindow({
       {/* Race List */}
       <div className="flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain', scrollBehavior: 'auto' }}>
         <div className="flex flex-col">
-          {races.map(([key, starters]) => {
+          {races.map(([key, filteredStarters]) => {
             const [track, raceNum] = key.split("-");
             const trackFull = { 
               AQU: "Aqueduct", 
@@ -466,15 +487,15 @@ export function StartersWindow({
             const displayDate = formatDate(selectedDate);
             const isFiltersActive = hasMultiSelectFilters || !!selectedConnection;
             const isExpanded = expandedRaces.has(key);
-            const fullRace = fullRaceMap.get(key);
-            const displayedStarters = isExpanded && fullRace ? fullRace : starters;
+            const fullRaceStarters = fullRaceMap.get(key) || [];
+            const displayedStarters = isExpanded ? fullRaceStarters : filteredStarters;
 
             return (
               <div key={key} className="w-full">
                 {/* Grey band header */}
                 <div className="bg-[var(--content-15)] text-[var(--text-primary)] text-[12px] leading-[18px] font-medium px-4 py-1 flex items-center justify-between">
                   <span>{displayDate}, {trackFull[track as keyof typeof trackFull] || track}, Race {raceNum}</span>
-                  {isFiltersActive && fullRace && (
+                  {isFiltersActive && fullRaceStarters.length > filteredStarters.length && (
                     <button
                       className="flex items-center gap-1 text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                       onClick={() => {
@@ -502,7 +523,7 @@ export function StartersWindow({
                   return (
                     <div
                       key={`${starter.track}-${starter.race}-${starter.horseName}`}
-                      className={`border-b border-[var(--border)] flex items-center gap-3 pl-5 pr-2 py-2 hover:bg-[var(--surface-hover)] transition-colors ${idx === starters.length - 1 ? "" : ""}`}
+                      className={`border-b border-[var(--border)] flex items-center gap-3 pl-5 pr-2 py-2 hover:bg-[var(--surface-hover)] transition-colors`}
                     >
                       {/* Left block: PP + odds + horse name */}
                       <div className="w-[132px] shrink-0 flex flex-col gap-2">

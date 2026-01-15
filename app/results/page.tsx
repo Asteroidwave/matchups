@@ -104,7 +104,7 @@ export default function ResultsPage() {
             ? matchup.setB 
             : matchup.setC;
         if (chosenSet) {
-          connectionNames.push(...chosenSet.connections.map(c => c.name));
+        connectionNames.push(...chosenSet.connections.map(c => c.name));
         }
       }
     }
@@ -135,10 +135,10 @@ export default function ResultsPage() {
             ? matchup.setB 
             : matchup.setC;
         if (chosenSet) {
-          for (const conn of chosenSet.connections) {
-            if (!connIds.has(conn.id)) {
-              connIds.add(conn.id);
-              conns.push(conn);
+        for (const conn of chosenSet.connections) {
+          if (!connIds.has(conn.id)) {
+            connIds.add(conn.id);
+            conns.push(conn);
             }
           }
         }

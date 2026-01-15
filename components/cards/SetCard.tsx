@@ -95,16 +95,16 @@ export function SetCard({
         {setSide.connections.map((conn) => {
           const highlightColor = getPlayerHighlightColor?.(conn.id);
           return (
-            <ConnectionCard 
-              key={conn.id} 
-              connection={conn}
-              onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
-              onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
+          <ConnectionCard 
+            key={conn.id} 
+            connection={conn}
+            onClick={onConnectionClick ? () => onConnectionClick(conn.id) : undefined}
+            onNameClick={onConnectionNameClick ? () => onConnectionNameClick(conn.id) : undefined}
               isHighlighted={conn.id === highlightedConnectionId || !!highlightColor}
               highlightColor={highlightColor}
-              showSalary={!isSingleConnection}
-              compact={false}
-            />
+            showSalary={!isSingleConnection}
+            compact={false}
+          />
           );
         })}
       </div>

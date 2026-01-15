@@ -160,7 +160,7 @@ export default function MatchupsPage() {
       if (isAlreadySelected) {
         // If we're removing this filter and it's the highlighted one, clear highlight
         if (highlightedConnectionId === connectionId) {
-          setHighlightedConnectionId(null);
+        setHighlightedConnectionId(null);
         }
       } else {
         // Set this as the highlighted connection
@@ -628,7 +628,7 @@ export default function MatchupsPage() {
                       </div>
                     </div>
                   </div>
-                )}
+                  )}
           </div>
           
           {/* Play Button - Always Visible at Bottom */}

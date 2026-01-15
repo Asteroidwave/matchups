@@ -104,8 +104,8 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
               {/* Track badges - each track has unique color */}
               {connection.trackSet.map((track) => (
                 <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getTrackBadgeStyle(track)}`}>
-                  {track}
-                </span>
+                    {track}
+                  </span>
               ))}
             </div>
           </div>

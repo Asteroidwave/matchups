@@ -50,39 +50,39 @@ function ConnectionCompareCard({
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${roleColor}`}>
             {connection.role.toUpperCase()}
-          </span>
+                </span>
           {connection.trackSet.map((track) => (
             <span key={track} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[var(--track-bg)] text-[var(--track)] border border-[var(--track)]/50">
               {track}
-            </span>
+                </span>
           ))}
-        </div>
-      </div>
-      
+              </div>
+            </div>
+            
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <div>
+              <div>
           <div className="text-[var(--text-tertiary)] text-xs">Salary</div>
           <div className="font-bold text-[var(--text-primary)]">${connection.salarySum.toLocaleString()}</div>
-        </div>
-        <div>
+              </div>
+              <div>
           <div className="text-[var(--text-tertiary)] text-xs">Apps</div>
           <div className="font-bold text-[var(--text-primary)]">{connection.apps}</div>
-        </div>
-        <div>
+              </div>
+              <div>
           <div className="text-[var(--text-tertiary)] text-xs">Avg Odds</div>
           <div className="font-bold text-[var(--text-primary)]">{connection.avgOdds.toFixed(2)}</div>
-        </div>
-        <div>
+              </div>
+              <div>
           <div className="text-[var(--text-tertiary)] text-xs">AVPA (90D)</div>
           <div className="font-bold text-[var(--text-primary)]">{connection.avpa30d.toFixed(2)}</div>
         </div>
         <div className="col-span-2 pt-2 border-t border-[var(--border)]">
           <div className="text-[var(--text-tertiary)] text-xs">Total Points</div>
           <div className="font-bold text-xl text-[var(--text-primary)]">{connection.pointsSum.toFixed(1)}</div>
-        </div>
-      </div>
-    </div>
+              </div>
+              </div>
+              </div>
   );
 }
 
@@ -155,7 +155,7 @@ export function CompareModal({ connection1, connection2, connection3, isOpen, on
             <div className="space-y-2">
               {/* Winner */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-[var(--success)] text-white flex items-center justify-center text-xs font-bold">
                     1
                   </div>
@@ -169,9 +169,9 @@ export function CompareModal({ connection1, connection2, connection3, isOpen, on
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-[var(--text-tertiary)] text-white flex items-center justify-center text-xs font-bold">
                     2
-                  </div>
+            </div>
                   <span className="font-medium text-[var(--text-secondary)]">{secondPlace.name}</span>
-                </div>
+              </div>
                 <span className="text-[var(--text-secondary)]">{secondPlace.pointsSum.toFixed(1)} pts</span>
               </div>
               
@@ -181,11 +181,11 @@ export function CompareModal({ connection1, connection2, connection3, isOpen, on
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-[var(--text-muted)] text-white flex items-center justify-center text-xs font-bold">
                       3
-                    </div>
+              </div>
                     <span className="font-medium text-[var(--text-tertiary)]">{thirdPlace.name}</span>
-                  </div>
+              </div>
                   <span className="text-[var(--text-tertiary)]">{thirdPlace.pointsSum.toFixed(1)} pts</span>
-                </div>
+              </div>
               )}
               
               {/* Point Differences */}

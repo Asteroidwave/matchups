@@ -148,7 +148,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const { all } = generateAllMatchups(loadedConnections, {
           totalTarget: 24,
           tolerance: tolerance / 1000, // keep compatibility with existing tolerance slider (500 => 0.5)
-        });
+      });
         setMatchups(all);
       } else {
         setMatchups([]);

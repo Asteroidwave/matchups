@@ -22,11 +22,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-[var(--page-bg)] text-[var(--text-primary)] transition-colors`}>
         <ThemeProvider>
-          <AppProvider>
-            <Navigation />
-            {children}
-            <Analytics />
-          </AppProvider>
+        <AppProvider>
+          <Navigation />
+          {children}
+          <Analytics />
+        </AppProvider>
         </ThemeProvider>
       </body>
     </html>
