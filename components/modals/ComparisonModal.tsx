@@ -327,11 +327,15 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             maxHeight: 'calc(85vh - 140px - 48px)', // Explicit max height
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain', // Prevent scroll chaining to parent
-            touchAction: 'pan-y', // Enable vertical touch scrolling
           }}
-          onWheel={(e) => {
-            // Ensure wheel events scroll this container, not parent
-            e.stopPropagation();
+          onWheelCapture={(e) => {
+            // Manually scroll the container on wheel events
+            const container = scrollRef.current;
+            if (container) {
+              e.preventDefault();
+              e.stopPropagation();
+              container.scrollTop += e.deltaY;
+            }
           }}
         >
           {activeTab === "connected" && (
