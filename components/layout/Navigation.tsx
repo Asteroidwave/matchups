@@ -111,8 +111,8 @@ export function Navigation() {
         availableTracks={availableTracks}
         selectedTracks={selectedTracks}
         selectedDate={selectedDate}
-        onSelectTracks={setSelectedTracks}
-        onSelectDate={(date) => {
+        onTracksChange={setSelectedTracks}
+        onDateChange={(date) => {
           setSelectedDate(date);
           setIsDatePickerOpen(false);
         }}
