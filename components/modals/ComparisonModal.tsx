@@ -292,19 +292,17 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
         </div>
         
-        {/* Content - Scrollable area */}
+        {/* Content - Scrollable area with fixed height calculation */}
         <div 
           ref={scrollRef}
-          className="flex-1 min-h-0" 
+          className="overflow-y-auto overflow-x-hidden"
           style={{ 
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            height: 'calc(85vh - 140px - 48px)', // 85vh modal - 140px header - 48px tabs
             WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain',
           }}
         >
           {activeTab === "connected" && (
-            <div className="overflow-x-auto">
+            <div>
               <table className="w-full">
                 {/* Table Header - Sticky (matching Figma table-header) */}
                 <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
@@ -343,6 +341,12 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                           const racePostMap = postPositionsMap.get(raceKey);
                           const post = racePostMap?.get(horseKey);
                           
+                          // Check if this connection matches
+                          const isJockeyMatch = connection.role === "jockey" && starter.jockey === connection.name;
+                          const isTrainerMatch = connection.role === "trainer" && starter.trainer === connection.name;
+                          const isSire1Match = connection.role === "sire" && starter.sire1 === connection.name;
+                          const isSire2Match = connection.role === "sire" && starter.sire2 === connection.name;
+                          
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
                               {/* Horse Column - compact to give more space to connections */}
@@ -370,35 +374,43 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                 <div className="grid grid-cols-2 border border-[var(--content-15)]">
                                   {/* Top row: Jockey and Trainer */}
                                   <div className={`border-r border-b border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--jockey)]/15" : ""
+                                    isJockeyMatch ? "bg-blue-100 dark:bg-blue-900/40" : ""
                                   }`}>
                                     <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                    <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                      isJockeyMatch ? "text-blue-700 dark:text-blue-300 font-bold" : "text-[var(--text-primary)]"
+                                    }`}>
                                       {starter.jockey || "—"}
                                     </span>
                                   </div>
                                   <div className={`border-b border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--trainer)]/15" : ""
+                                    isTrainerMatch ? "bg-green-100 dark:bg-green-900/40" : ""
                                   }`}>
                                     <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                    <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                      isTrainerMatch ? "text-green-700 dark:text-green-300 font-bold" : "text-[var(--text-primary)]"
+                                    }`}>
                                       {starter.trainer || "—"}
                                     </span>
                                   </div>
                                   {/* Bottom row: Sire 1 and Sire 2 */}
                                   <div className={`border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--sire)]/15" : ""
+                                    isSire1Match ? "bg-amber-100 dark:bg-amber-900/40" : ""
                                   }`}>
                                     <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                    <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                      isSire1Match ? "text-amber-700 dark:text-amber-300 font-bold" : "text-[var(--text-primary)]"
+                                    }`}>
                                       {starter.sire1 || "—"}
                                     </span>
                                   </div>
                                   <div className={`px-3 py-2 flex items-center gap-1.5 min-h-[44px] ${
-                                    connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--sire)]/15" : ""
+                                    isSire2Match ? "bg-amber-100 dark:bg-amber-900/40" : ""
                                   }`}>
                                     <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
+                                    <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                      isSire2Match ? "text-amber-700 dark:text-amber-300 font-bold" : "text-[var(--text-primary)]"
+                                    }`}>
                                       {starter.sire2 || "—"}
                                     </span>
                                   </div>
