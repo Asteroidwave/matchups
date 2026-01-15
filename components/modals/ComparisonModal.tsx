@@ -38,31 +38,45 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   const scrollRefA = useRef<HTMLDivElement>(null);
   const scrollRefB = useRef<HTMLDivElement>(null);
   const scrollRefC = useRef<HTMLDivElement>(null);
-  
-  // Debug: Log scroll container dimensions
+
+  // Manual wheel handler to force scrolling on trackpads/mice (non-passive)
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        [scrollRefA, scrollRefB, scrollRefC].forEach((ref, idx) => {
-          if (ref.current) {
-            const el = ref.current;
-            const computed = window.getComputedStyle(el);
-            console.log(`[Scroll Debug ${['A', 'B', 'C'][idx]}]`, {
-              clientHeight: el.clientHeight,
-              scrollHeight: el.scrollHeight,
-              offsetHeight: el.offsetHeight,
-              overflow: computed.overflow,
-              overflowY: computed.overflowY,
-              height: computed.height,
-              maxHeight: computed.maxHeight,
-              canScroll: el.scrollHeight > el.clientHeight,
-              parentHeight: el.parentElement?.clientHeight,
-            });
-          }
-        });
-      }, 500);
-    }
-  }, [isOpen, activeTabSetA, activeTabSetB, activeTabSetC]);
+    if (!isOpen) return;
+
+    const attachWheel = (ref: React.RefObject<HTMLDivElement>, label: string) => {
+      const el = ref.current;
+      if (!el) return () => {};
+
+      const handler = (e: WheelEvent) => {
+        // Log once for debugging
+        // console.log(`[Wheel ${label}] deltaY`, e.deltaY, 'clientHeight', el.clientHeight, 'scrollHeight', el.scrollHeight);
+        if (el.scrollHeight > el.clientHeight) {
+          e.preventDefault();
+          e.stopPropagation();
+          el.scrollTop += e.deltaY;
+        }
+      };
+
+      el.addEventListener("wheel", handler, { passive: false });
+      return () => el.removeEventListener("wheel", handler);
+    };
+
+    const cleanups = [
+      attachWheel(scrollRefA, "A"),
+      attachWheel(scrollRefB, "B"),
+      attachWheel(scrollRefC, "C"),
+    ];
+
+    return () => cleanups.forEach((cleanup) => cleanup && cleanup());
+  }, [
+    isOpen,
+    activeTabSetA,
+    activeTabSetB,
+    activeTabSetC,
+    connectionIndexA,
+    connectionIndexB,
+    connectionIndexC,
+  ]);
   
   // Load past performance when tab is switched to "past"
   useEffect(() => {
@@ -327,15 +341,6 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             maxHeight: 'calc(85vh - 140px - 48px)', // Explicit max height
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain', // Prevent scroll chaining to parent
-          }}
-          onWheelCapture={(e) => {
-            // Manually scroll the container on wheel events
-            const container = scrollRef.current;
-            if (container) {
-              e.preventDefault();
-              e.stopPropagation();
-              container.scrollTop += e.deltaY;
-            }
           }}
         >
           {activeTab === "connected" && (
