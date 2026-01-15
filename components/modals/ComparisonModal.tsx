@@ -326,8 +326,12 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             minHeight: 0,
             maxHeight: 'calc(85vh - 140px - 48px)', // Explicit max height
             WebkitOverflowScrolling: 'touch',
-            // Debug: uncomment to see scroll container
-            // border: '3px solid red',
+            overscrollBehavior: 'contain', // Prevent scroll chaining to parent
+            touchAction: 'pan-y', // Enable vertical touch scrolling
+          }}
+          onWheel={(e) => {
+            // Ensure wheel events scroll this container, not parent
+            e.stopPropagation();
           }}
         >
           {activeTab === "connected" && (
@@ -592,12 +596,19 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ pointerEvents: 'none' }}>
         {/* Backdrop with blur */}
-        <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+        <DialogPrimitive.Overlay 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm" 
+          onClick={onClose}
+          style={{ pointerEvents: 'auto' }}
+        />
         
         {/* Modal Container - Side by side with minimal gap */}
-        <div className={`relative z-50 flex items-stretch justify-center gap-2 pt-2 pb-2 ${is3Way ? 'px-2' : ''}`} style={{ height: '85vh' }}>
+        <div 
+          className={`relative z-50 flex items-stretch justify-center gap-2 pt-2 pb-2 ${is3Way ? 'px-2' : ''}`} 
+          style={{ height: '85vh', pointerEvents: 'auto' }}
+        >
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
             <div className="h-full">
