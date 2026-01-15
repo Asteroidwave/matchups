@@ -39,6 +39,31 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   const scrollRefB = useRef<HTMLDivElement>(null);
   const scrollRefC = useRef<HTMLDivElement>(null);
   
+  // Debug: Log scroll container dimensions
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        [scrollRefA, scrollRefB, scrollRefC].forEach((ref, idx) => {
+          if (ref.current) {
+            const el = ref.current;
+            const computed = window.getComputedStyle(el);
+            console.log(`[Scroll Debug ${['A', 'B', 'C'][idx]}]`, {
+              clientHeight: el.clientHeight,
+              scrollHeight: el.scrollHeight,
+              offsetHeight: el.offsetHeight,
+              overflow: computed.overflow,
+              overflowY: computed.overflowY,
+              height: computed.height,
+              maxHeight: computed.maxHeight,
+              canScroll: el.scrollHeight > el.clientHeight,
+              parentHeight: el.parentElement?.clientHeight,
+            });
+          }
+        });
+      }, 500);
+    }
+  }, [isOpen, activeTabSetA, activeTabSetB, activeTabSetC]);
+  
   // Load past performance when tab is switched to "past"
   useEffect(() => {
     if (activeTabSetA === "past" && matchup?.setA?.connections?.[connectionIndexA] && isOpen) {
@@ -295,9 +320,14 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         {/* Content - Scrollable area - takes remaining space */}
         <div 
           ref={scrollRef}
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+          className="overflow-y-auto overflow-x-hidden"
           style={{ 
+            flex: '1 1 auto',
+            minHeight: 0,
+            maxHeight: 'calc(85vh - 140px - 48px)', // Explicit max height
             WebkitOverflowScrolling: 'touch',
+            // Debug: uncomment to see scroll container
+            // border: '3px solid red',
           }}
         >
           {activeTab === "connected" && (
