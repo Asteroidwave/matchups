@@ -393,7 +393,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
                               {/* Horse Column - compact to give more space to connections */}
-                              <td className="w-[115px] py-3 pl-4 pr-0 align-top">
+                              <td className="w-[200px] py-3 pl-4 pr-0 align-top">
                                 <div className="flex flex-col gap-1.5">
                                   {/* PP and Odds in a row */}
                                   <div className="flex items-center gap-1.5">
@@ -407,7 +407,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                     </span>
                                   </div>
                                   {/* Horse Name */}
-                                  <div className="text-[13px] font-medium leading-[20px] text-[var(--text-primary)] truncate max-w-[100px]">
+                                  <div className="text-[13px] font-medium leading-[20px] text-[var(--text-primary)] truncate max-w-[130px]">
                                     {starter.horseName}
                                   </div>
                                 </div>

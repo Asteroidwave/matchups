@@ -454,7 +454,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
                               {/* Horse Column - compact for more connection space */}
-                              <td className="w-[120px] py-3 pl-5 pr-0 align-top">
+                              <td className="w-[300px] py-3 pl-5 pr-0 align-top">
                                 <div className="flex flex-col gap-2">
                                   {/* PP and Odds */}
                                   <div className="flex items-center gap-2">
