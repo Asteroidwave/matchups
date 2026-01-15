@@ -295,15 +295,16 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         {/* Content - Scrollable area */}
         <div 
           ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden min-h-0" 
+          className="flex-1 min-h-0" 
           style={{ 
+            overflowY: 'auto',
+            overflowX: 'hidden',
             WebkitOverflowScrolling: 'touch',
             overscrollBehavior: 'contain',
-            scrollBehavior: 'smooth'
           }}
         >
           {activeTab === "connected" && (
-            <div style={{ width: '100%' }}>
+            <div className="overflow-x-auto">
               <table className="w-full">
                 {/* Table Header - Sticky (matching Figma table-header) */}
                 <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">

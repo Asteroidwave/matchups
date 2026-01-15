@@ -540,6 +540,7 @@ export async function getDataForDate(date: string, trackCode: string = 'AQU'): P
 
 /**
  * Get past performance for a connection
+ * Uses dailyJockeys/dailyTrainers/dailySires for connection-level stats (AVPA, salary)
  */
 export async function getConnectionHistory(
   connectionName: string,
@@ -548,6 +549,27 @@ export async function getConnectionHistory(
   limit: number = 10
 ): Promise<PastPerformanceEntry[]> {
   const data = await loadTrackData(trackCode);
+  
+  // Build a lookup map for connection's daily stats (date -> stats)
+  const dailyStatsMap = new Map<string, { avpa: number; salary: number; totalPoints: number }>();
+  
+  // Get the appropriate daily connection data based on role
+  const dailyData = role === 'jockey' ? data.dailyJockeys :
+                    role === 'trainer' ? data.dailyTrainers :
+                    data.dailySires;
+  
+  // Build lookup map for this connection's daily stats
+  if (dailyData) {
+    dailyData.forEach((entry: any) => {
+      if (entry.name === connectionName) {
+        dailyStatsMap.set(entry.date, {
+          avpa: entry.avpa || entry.dayAvpa || 0,
+          salary: entry.newSalary || entry.ogSalary || 0,
+          totalPoints: entry.totalPoints || 0,
+        });
+      }
+    });
+  }
   
   const history: PastPerformanceEntry[] = [];
   
@@ -560,6 +582,9 @@ export async function getConnectionHistory(
     if (role === 'sire' && (horse.sire1 === connectionName || horse.sire2 === connectionName)) isMatch = true;
     
     if (isMatch) {
+      // Get connection's daily stats for this date
+      const dailyStats = dailyStatsMap.get(horse.date);
+      
       history.push({
         date: horse.date,
         track: trackCode,
@@ -568,8 +593,10 @@ export async function getConnectionHistory(
         finish: horse.finish,
         totalPoints: horse.totalPoints,
         finalOdds: horse.mlOddsDecimal,
-        salary: horse.salary,
-        avpa: horse.avpa,
+        // Use horse's salary (individual entry), but AVPA from connection's daily stats
+        salary: horse.salary || 0,
+        // Use connection's daily AVPA if available, otherwise fall back to horse's avpa
+        avpa: dailyStats?.avpa || horse.avpa || 0,
       });
     }
   });
