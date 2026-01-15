@@ -193,7 +193,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
     };
 
     return (
-      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0`} style={{ height: '85vh', maxHeight: '85vh', pointerEvents: 'auto' }}>
+      <div className={`${modalWidth} p-0 flex flex-col rounded-lg bg-[var(--surface-1)] shadow-lg border border-[var(--content-15)] flex-shrink-0 overflow-hidden`} style={{ height: '85vh', maxHeight: '85vh', pointerEvents: 'auto' }}>
         {/* Header - Matching ConnectionModal style */}
         <div className={`relative h-[140px] ${headerBg} text-white flex-shrink-0 rounded-t-lg`}>
           <button
@@ -292,12 +292,11 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
         </div>
         
-        {/* Content - Scrollable area with fixed height calculation */}
+        {/* Content - Scrollable area - takes remaining space */}
         <div 
           ref={scrollRef}
-          className="overflow-y-auto overflow-x-hidden"
+          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
           style={{ 
-            height: 'calc(85vh - 140px - 48px)', // 85vh modal - 140px header - 48px tabs
             WebkitOverflowScrolling: 'touch',
           }}
         >
@@ -341,11 +340,12 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                           const racePostMap = postPositionsMap.get(raceKey);
                           const post = racePostMap?.get(horseKey);
                           
-                          // Check if this connection matches
-                          const isJockeyMatch = connection.role === "jockey" && starter.jockey === connection.name;
-                          const isTrainerMatch = connection.role === "trainer" && starter.trainer === connection.name;
-                          const isSire1Match = connection.role === "sire" && starter.sire1 === connection.name;
-                          const isSire2Match = connection.role === "sire" && starter.sire2 === connection.name;
+                          // Check if this connection matches - use includes for more robust matching
+                          const connName = connection.name.trim().toLowerCase();
+                          const isJockeyMatch = connection.role === "jockey" && starter.jockey?.trim().toLowerCase() === connName;
+                          const isTrainerMatch = connection.role === "trainer" && starter.trainer?.trim().toLowerCase() === connName;
+                          const isSire1Match = connection.role === "sire" && starter.sire1?.trim().toLowerCase() === connName;
+                          const isSire2Match = connection.role === "sire" && starter.sire2?.trim().toLowerCase() === connName;
                           
                           return (
                             <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
@@ -567,10 +567,10 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         <DialogPrimitive.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
         
         {/* Modal Container - Side by side with minimal gap */}
-        <div className={`relative z-50 flex items-start justify-center gap-2 pt-2 pb-2 ${is3Way ? 'px-2' : ''}`}>
+        <div className={`relative z-50 flex items-stretch justify-center gap-2 pt-2 pb-2 ${is3Way ? 'px-2' : ''}`} style={{ height: '85vh' }}>
           {/* Set A Modal */}
           {matchup?.setA?.connections?.length > 0 ? (
-            <div>
+            <div className="h-full">
               {renderConnectionModal(
                 matchup.setA.connections[connectionIndexA] || matchup.setA.connections[0],
                 activeTabSetA,
@@ -595,7 +595,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
 
           {/* Set B Modal */}
           {matchup?.setB?.connections?.length > 0 ? (
-            <div>
+            <div className="h-full">
               {renderConnectionModal(
                 matchup.setB.connections[connectionIndexB] || matchup.setB.connections[0],
                 activeTabSetB,
@@ -620,7 +620,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           
           {/* Set C Modal (only for 3-way matchups) */}
           {is3Way && matchup?.setC?.connections?.length > 0 ? (
-            <div>
+            <div className="h-full">
               {renderConnectionModal(
                 matchup.setC.connections[connectionIndexC] || matchup.setC.connections[0],
                 activeTabSetC,
