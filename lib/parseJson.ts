@@ -669,6 +669,7 @@ export interface ConnectionComprehensiveStats {
     starts: number;
     wins: number;
     winPct: number;
+    itmPct: number;
     avgPoints: number;
     avpa: number;
   }[];

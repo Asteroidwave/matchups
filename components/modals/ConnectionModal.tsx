@@ -202,8 +202,37 @@ const trackColors: Record<string, { bg: string; border: string }> = {
   MVR: { bg: "bg-amber-500/10", border: "border-amber-500" },
 };
 
+// Convert furlongs to conventional distance string
+function furlongsToDistance(furlongs: number): string {
+  if (furlongs <= 0) return 'Unknown';
+  
+  // Common distances in horse racing
+  if (furlongs === 4.5) return '4½ Furlongs';
+  if (furlongs === 5) return '5 Furlongs';
+  if (furlongs === 5.5) return '5½ Furlongs';
+  if (furlongs === 6) return '6 Furlongs';
+  if (furlongs === 6.5) return '6½ Furlongs';
+  if (furlongs === 7) return '7 Furlongs';
+  if (furlongs === 8) return '1 Mile';
+  if (furlongs === 8.5) return '1 Mile 70 Yards';
+  if (furlongs === 9) return '1⅛ Miles';
+  if (furlongs === 10) return '1¼ Miles';
+  if (furlongs === 11) return '1⅜ Miles';
+  if (furlongs === 12) return '1½ Miles';
+  if (furlongs === 14) return '1¾ Miles';
+  if (furlongs === 16) return '2 Miles';
+  
+  // Fallback for other values
+  if (furlongs < 8) return `${furlongs}f`;
+  const miles = Math.floor(furlongs / 8);
+  const remainingFurlongs = furlongs % 8;
+  if (remainingFurlongs === 0) return `${miles} Mile${miles > 1 ? 's' : ''}`;
+  return `${miles}+${remainingFurlongs}f`;
+}
+
 export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModalProps) {
   const [activeTab, setActiveTab] = useState<"connected" | "stats" | "past">("connected");
+  const [showFullRaces, setShowFullRaces] = useState(false);
   const { connections: allConnections, selectedTracks } = useApp();
   const [pastPerformance, setPastPerformance] = useState<PastPerformanceEntry[]>([]);
   const [isLoadingPP, setIsLoadingPP] = useState(false);
@@ -272,6 +301,15 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
     trainer: "bg-green-600",
     sire: "bg-amber-600",
   }[connection.role];
+  
+  // Calculate average field size and distance from today's starters
+  const nonScratchedStarters = connection.starters.filter(s => !s.scratched);
+  const avgFieldSize = nonScratchedStarters.length > 0
+    ? nonScratchedStarters.reduce((sum, s) => sum + (s.fieldSize || 8), 0) / nonScratchedStarters.length
+    : 0;
+  const avgDistance = nonScratchedStarters.length > 0
+    ? nonScratchedStarters.reduce((sum, s) => sum + (s.distance || 6), 0) / nonScratchedStarters.length
+    : 0;
   
   const getPlaceColor = (place?: number) => {
     if (!place || place === 0) return "bg-gray-500 text-white";
@@ -354,22 +392,30 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
           
           {/* Stats section */}
           <div className="px-6 pb-5 pt-4">
-            <div className="pl-[172px] flex items-end gap-[34px] h-full pb-4">
+            <div className="pl-[172px] flex items-end gap-[24px] h-full pb-4">
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">{connection.avgOdds.toFixed(2)}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVG. ODDS</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG. ODDS</div>
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">{String(connection.apps).padStart(2, '0')}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">APPEARANCES</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">APPS</div>
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">FP1K</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">FP1K</div>
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">SALARY</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">SALARY</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{avgFieldSize.toFixed(0)}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG FIELD</div>
+              </div>
+              <div>
+                <div className="text-[14px] font-semibold leading-[20px]">{furlongsToDistance(avgDistance)}</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG DIST</div>
               </div>
             </div>
           </div>
@@ -427,9 +473,24 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
         <div className="overflow-y-auto" style={{ height: '500px' }}>
           {activeTab === "connected" && (
             <div className="overflow-x-auto">
+              {/* Show Full Race Toggle */}
+              <div className="sticky top-0 bg-[var(--surface-1)] z-20 px-5 py-2 border-b border-[var(--content-15)] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-[var(--text-secondary)]">
+                    {nonScratchedStarters.length} horse{nonScratchedStarters.length !== 1 ? 's' : ''} in {races.length} race{races.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowFullRaces(!showFullRaces)}
+                  className="text-[12px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors"
+                >
+                  {showFullRaces ? 'Hide Full Races' : 'Show Full Races'}
+                </button>
+              </div>
+              
               <table className="w-full">
                 {/* Table Header - Sticky */}
-                <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
+                <thead className="sticky top-[41px] bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
                   <tr>
                     <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-2 pt-2 text-left">
                       <div className="flex items-center">
@@ -448,93 +509,141 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     const [track, raceNum] = key.split("-");
                     const trackName = trackFullName[track] || track;
                     
+                    // Get race info from first starter
+                    const firstStarter = starters[0];
+                    const fieldSize = firstStarter?.fieldSize || 8;
+                    const distance = firstStarter?.distance || 6;
+                    const distanceStr = furlongsToDistance(distance);
+                    const surface = firstStarter?.surface || 'Dirt';
+                    
                     return (
                       <React.Fragment key={key}>
-                        {/* Div.rack.track.group.component - Race Header (gray band) */}
+                        {/* Race Header with field size and distance */}
                         <tr className="bg-[var(--content-15)]">
-                          <td colSpan={2} className="px-5 py-1 text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                            October 3, 2025, {trackName}, Race {raceNum}
+                          <td colSpan={2} className="px-5 py-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                {trackName}, Race {raceNum}
+                              </span>
+                              <div className="flex items-center gap-3 text-[12px] text-[var(--text-secondary)]">
+                                <span>{fieldSize} horses</span>
+                                <span>•</span>
+                                <span>{distanceStr}</span>
+                                <span>•</span>
+                                <span>{surface}</span>
+                              </div>
+                            </div>
                           </td>
                         </tr>
                         
-                        {/* Horse rows for this race - table-header style */}
-                        {starters.map((starter, idx) => {
-                          // Get post position for this starter
-                          const raceKey = `${starter.track}-${starter.race}`;
-                          const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
-                          const racePostMap = postPositionsMap.get(raceKey);
-                          const post = racePostMap?.get(horseKey);
+                        {/* Horse rows - show all horses in race if showFullRaces, else just connection's horses */}
+                        {(() => {
+                          const raceKey = `${track}-${raceNum}`;
+                          const allRaceStarters = allRacesMap.get(raceKey) || [];
+                          const horsesToShow = showFullRaces ? allRaceStarters : starters;
                           
-                          return (
-                            <tr key={`${key}-${idx}`} className="border-b border-[var(--content-15)]">
-                              {/* Horse Column - compact for more connection space */}
-                              <td className="w-[300px] py-3 pl-5 pr-0 align-top">
-                                <div className="flex flex-col gap-2">
-                                  {/* PP and Odds */}
-                                  <div className="flex items-center gap-2">
-                                    <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] ${
-                                      post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
-                                    }`}>
-                                      {post || "—"}
-                                    </span>
-                                    <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                      {starter.mlOddsFrac || "—"}
-                                    </span>
-                                  </div>
-                                  {/* Horse Name */}
-                                  <div>
-                                    <div className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                      {starter.horseName}
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                              {/* Connections Column - Wider grid */}
-                              <td className="flex-1 pl-4 pr-2 align-top">
-                                <div className="flex flex-col">
-                                  {/* Top row: Jockey and Trainer */}
-                                  <div className="flex border-b border-[var(--content-15)]">
-                                    <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
-                                      connection.role === "jockey" && starter.jockey === connection.name ? "bg-[var(--blue-50)]" : ""
-                                    }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
-                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
-                                        {starter.jockey || "—"}
+                          // De-duplicate by horse name
+                          const seen = new Set<string>();
+                          const uniqueHorses = horsesToShow.filter(s => {
+                            if (seen.has(s.horseName)) return false;
+                            seen.add(s.horseName);
+                            return true;
+                          });
+                          
+                          return uniqueHorses.map((starter, idx) => {
+                            const horseKey = `${starter.track}-${starter.race}-${starter.horseName}`;
+                            const racePostMap = postPositionsMap.get(raceKey);
+                            const post = racePostMap?.get(horseKey);
+                            
+                            // Check if this horse belongs to the current connection
+                            const isConnectionHorse = starters.some(s => s.horseName === starter.horseName);
+                            
+                            return (
+                              <tr 
+                                key={`${key}-${idx}`} 
+                                className={`border-b border-[var(--content-15)] ${
+                                  !isConnectionHorse && showFullRaces ? 'opacity-50' : ''
+                                }`}
+                              >
+                                {/* Horse Column */}
+                                <td className="w-[300px] py-3 pl-5 pr-0 align-top">
+                                  <div className="flex flex-col gap-2">
+                                    {/* PP and Odds */}
+                                    <div className="flex items-center gap-2">
+                                      <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] ${
+                                        post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
+                                      }`}>
+                                        {post || "—"}
+                                      </span>
+                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                        {starter.mlOddsFrac || "—"}
                                       </span>
                                     </div>
-                                    <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
-                                      connection.role === "trainer" && starter.trainer === connection.name ? "bg-[var(--blue-50)]" : ""
-                                    }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
-                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
-                                        {starter.trainer || "—"}
-                                      </span>
+                                    {/* Horse Name */}
+                                    <div>
+                                      <div className={`text-[14px] font-medium leading-[20px] ${
+                                        isConnectionHorse ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+                                      }`}>
+                                        {starter.horseName}
+                                      </div>
                                     </div>
                                   </div>
-                                  {/* Bottom row: Sire 1 and Sire 2 */}
-                                  <div className="flex">
-                                    <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
-                                      connection.role === "sire" && starter.sire1 === connection.name ? "bg-[var(--blue-50)]" : ""
-                                    }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
-                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
-                                        {starter.sire1 || "—"}
-                                      </span>
+                                </td>
+                                {/* Connections Column */}
+                                <td className="flex-1 pl-4 pr-2 align-top">
+                                  <div className="flex flex-col">
+                                    {/* Top row: Jockey and Trainer */}
+                                    <div className="flex border-b border-[var(--content-15)]">
+                                      <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
+                                        connection.role === "jockey" && starter.jockey === connection.name ? "bg-blue-500/20" : ""
+                                      }`}>
+                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
+                                        <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                          connection.role === "jockey" && starter.jockey === connection.name ? "text-blue-400 font-semibold" : "text-[var(--text-primary)]"
+                                        }`}>
+                                          {starter.jockey || "—"}
+                                        </span>
+                                      </div>
+                                      <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
+                                        connection.role === "trainer" && starter.trainer === connection.name ? "bg-green-500/20" : ""
+                                      }`}>
+                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
+                                        <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                          connection.role === "trainer" && starter.trainer === connection.name ? "text-green-400 font-semibold" : "text-[var(--text-primary)]"
+                                        }`}>
+                                          {starter.trainer || "—"}
+                                        </span>
+                                      </div>
                                     </div>
-                                    <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
-                                      connection.role === "sire" && starter.sire2 === connection.name ? "bg-[var(--blue-50)]" : ""
-                                    }`}>
-                                      <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
-                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)] truncate">
-                                        {starter.sire2 || "—"}
-                                      </span>
+                                    {/* Bottom row: Sire 1 and Sire 2 */}
+                                    <div className="flex">
+                                      <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
+                                        connection.role === "sire" && starter.sire1 === connection.name ? "bg-amber-500/20" : ""
+                                      }`}>
+                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                        <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                          connection.role === "sire" && starter.sire1 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]"
+                                        }`}>
+                                          {starter.sire1 || "—"}
+                                        </span>
+                                      </div>
+                                      <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
+                                        connection.role === "sire" && starter.sire2 === connection.name ? "bg-amber-500/20" : ""
+                                      }`}>
+                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                        <span className={`text-[14px] font-medium leading-[20px] truncate ${
+                                          connection.role === "sire" && starter.sire2 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]"
+                                        }`}>
+                                          {starter.sire2 || "—"}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
                       </React.Fragment>
                     );
                   })}

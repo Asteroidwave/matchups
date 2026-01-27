@@ -73,19 +73,19 @@ function AvpaPerformanceChart({
               >
                 {/* Hover tooltip - on top, wider layout */}
                 {hoveredIdx === idx && (
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded-lg p-3 shadow-lg min-w-[160px]">
-                    <div className="text-[12px] font-semibold text-[var(--text-primary)] mb-2 text-center">
-                      {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded-lg p-3 shadow-lg min-w-[180px]">
+                    <div className="text-[12px] font-semibold text-[var(--text-primary)] mb-2 text-center border-b border-[var(--content-15)] pb-2">
+                      {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                      <span className="text-[var(--text-tertiary)]">Races</span>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                      <span className="text-[var(--text-tertiary)]">Horses</span>
                       <span className="text-[var(--text-primary)] font-medium text-right">{item.races}</span>
-                      <span className="text-[var(--text-tertiary)]">Points</span>
-                      <span className="text-[var(--text-primary)] font-medium text-right">{item.points.toFixed(1)}</span>
-                      <span className="text-[var(--text-tertiary)]">Salary</span>
+                      <span className="text-[var(--text-tertiary)]">Total Points</span>
+                      <span className="text-[var(--text-primary)] font-semibold text-right">{item.points.toFixed(1)}</span>
+                      <span className="text-[var(--text-tertiary)]">Total Salary</span>
                       <span className="text-[var(--text-primary)] font-medium text-right">${item.salary.toLocaleString()}</span>
                       <span className="text-[var(--text-tertiary)]">FP1K</span>
-                      <span className={`font-semibold text-right ${isAboveAvg ? 'text-orange-400' : 'text-gray-400'}`}>{item.avpa.toFixed(2)}</span>
+                      <span className={`font-bold text-right ${isAboveAvg ? 'text-orange-400' : 'text-gray-400'}`}>{item.avpa.toFixed(2)}</span>
                     </div>
                     {/* Tooltip arrow pointing down */}
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--surface-3)]" />
@@ -268,14 +268,15 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
       s.avpa.toFixed(2),
     ]);
 
-  // Prepare odds stats table rows
-  const oddsHeaders = ['Odds Range', 'Starts', 'Win%', 'Avg Pts', 'FP1K'];
+  // Prepare odds stats table rows - with ITM%
+  const oddsHeaders = ['Odds Range', 'Starts', 'Win%', 'ITM%', 'Avg Pts', 'FP1K'];
   const oddsRows = stats.oddsStats
     .filter(s => s.starts > 0)
     .map(s => [
       s.label,
       s.starts,
       `${s.winPct.toFixed(0)}%`,
+      `${s.itmPct?.toFixed(0) || 0}%`,
       s.avgPoints.toFixed(1),
       s.avpa.toFixed(2),
     ]);
@@ -382,29 +383,31 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
         {/* Consistency Score Card */}
         {stats.consistencyScore && (
           <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
-            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Consistency</h4>
+            <div className="flex items-start justify-between mb-2">
+              <h4 className="text-[14px] font-semibold text-[var(--text-primary)]">Consistency</h4>
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                stats.consistencyScore.rating === 'Very Consistent' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                stats.consistencyScore.rating === 'Consistent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
+                stats.consistencyScore.rating === 'Variable' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
+                'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+              }`}>
+                {stats.consistencyScore.rating}
+              </span>
+            </div>
+            <p className="text-[10px] text-[var(--text-tertiary)] mb-3 leading-tight">
+              How predictable is this connection? Lower variation = safer pick, higher = boom or bust.
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Rating</span>
-                <span className={`text-[13px] font-semibold px-2 py-0.5 rounded ${
-                  stats.consistencyScore.rating === 'Very Consistent' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
-                  stats.consistencyScore.rating === 'Consistent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
-                  stats.consistencyScore.rating === 'Variable' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
-                  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
-                }`}>
-                  {stats.consistencyScore.rating}
+                <span className="text-[11px] text-[var(--text-secondary)]">FP1K Variation</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
+                  ±{stats.consistencyScore.avpaStdDev.toFixed(1)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">FP1K Std Dev</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
-                  {stats.consistencyScore.avpaStdDev.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Points Std Dev</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
-                  {stats.consistencyScore.pointsStdDev.toFixed(2)}
+                <span className="text-[11px] text-[var(--text-secondary)]">Points Variation</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
+                  ±{stats.consistencyScore.pointsStdDev.toFixed(1)}
                 </span>
               </div>
             </div>
@@ -414,23 +417,26 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
         {/* Upset Stats Card */}
         {stats.upsetStats && (
           <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
-            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Upset Frequency</h4>
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2">Longshot Winner</h4>
+            <p className="text-[10px] text-[var(--text-tertiary)] mb-3 leading-tight">
+              How often does this connection win or place when not favored (3/1 odds or higher)?
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">ITM at 3/1+</span>
-                <span className="text-[13px] font-semibold text-orange-500">
-                  {stats.upsetStats.upsets} times
+                <span className="text-[11px] text-[var(--text-secondary)]">Times ITM at 3/1+</span>
+                <span className="text-[12px] font-semibold text-orange-500">
+                  {stats.upsetStats.upsets}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Upset Rate</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">Upset Rate</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.upsetStats.upsetPct.toFixed(1)}%
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Avg Pts (Upset)</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">Avg Pts When Upset</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.upsetStats.avgPointsWhenUpset.toFixed(1)}
                 </span>
               </div>
@@ -439,72 +445,10 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
         )}
       </div>
 
-      {/* Current Horses Section */}
-      {stats.currentHorsesStats && stats.currentHorsesStats.totalHorses > 0 && (
-        <div className="mb-6">
-          <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2 px-1">
-            Current Horses ({stats.currentHorsesStats.totalHorses})
-          </h4>
-          
-          {/* Summary stats */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
-            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
-              <div className="text-[11px] text-[var(--text-tertiary)]">Avg Odds</div>
-              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
-                {stats.currentHorsesStats.avgOdds.toFixed(1)}/1
-              </div>
-            </div>
-            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
-              <div className="text-[11px] text-[var(--text-tertiary)]">Avg Field</div>
-              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
-                {stats.currentHorsesStats.avgFieldSize.toFixed(0)}
-              </div>
-            </div>
-            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
-              <div className="text-[11px] text-[var(--text-tertiary)]">Favorites</div>
-              <div className="text-[14px] font-semibold text-green-500">
-                {stats.currentHorsesStats.favoriteCount}
-              </div>
-            </div>
-            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
-              <div className="text-[11px] text-[var(--text-tertiary)]">Longshots</div>
-              <div className="text-[14px] font-semibold text-orange-500">
-                {stats.currentHorsesStats.longshotCount}
-              </div>
-            </div>
-          </div>
-          
-          {/* Horse list */}
-          <div className="border border-[var(--content-15)] rounded-lg overflow-hidden">
-            <div className="bg-[var(--surface-2)] border-b border-[var(--content-15)] px-3 py-2 grid grid-cols-12 gap-2 text-[11px] font-semibold text-[var(--text-tertiary)]">
-              <div className="col-span-4">Horse</div>
-              <div className="col-span-2">Odds</div>
-              <div className="col-span-2">Track</div>
-              <div className="col-span-2">Race</div>
-              <div className="col-span-2">Surface</div>
-            </div>
-            {stats.currentHorsesStats.horses.map((horse, idx) => (
-              <div 
-                key={`horse-${horse.name}-${idx}`}
-                className="px-3 py-2 grid grid-cols-12 gap-2 text-[12px] border-b border-[var(--content-15)] last:border-b-0"
-              >
-                <div className="col-span-4 font-medium text-[var(--text-primary)] truncate">
-                  {horse.name}
-                </div>
-                <div className="col-span-2 text-[var(--text-secondary)]">{horse.odds}</div>
-                <div className="col-span-2 text-[var(--text-secondary)]">{horse.track}</div>
-                <div className="col-span-2 text-[var(--text-secondary)]">R{horse.race}</div>
-                <div className="col-span-2 text-[var(--text-secondary)]">{horse.surface}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Jockey/Trainer Combo Stats */}
-      {stats.comboStats && stats.comboStats.combos.length > 0 && (
+      {/* Jockey/Trainer Combo Stats - Only for jockeys and trainers */}
+      {stats.comboStats && stats.comboStats.combos.length > 0 && role !== 'sire' && (
         <StatsTable
-          title={`Best ${stats.comboStats.type === 'trainer' ? 'Trainer' : 'Jockey'} Partners`}
+          title="Best J-T Partnership"
           headers={['Partner', 'Starts', 'Win%', 'Avg Pts', 'FP1K']}
           rows={stats.comboStats.combos.map(c => [
             c.name,
@@ -521,29 +465,26 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
         <div className="grid grid-cols-2 gap-4 mb-6">
           {/* As Favorite */}
           <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
-            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">As Favorite (&lt;3/1)</h4>
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2">When Heavily Backed</h4>
+            <p className="text-[10px] text-[var(--text-tertiary)] mb-3 leading-tight">
+              Performance when on horses with low odds (&lt;3/1) - expected to win.
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Starts</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">Times as Favorite</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.favoriteStats.asFavorite.starts}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Win%</span>
-                <span className="text-[13px] font-semibold text-green-500">
+                <span className="text-[11px] text-[var(--text-secondary)]">Converted (Won)</span>
+                <span className="text-[12px] font-semibold text-green-500">
                   {stats.favoriteStats.asFavorite.winPct.toFixed(0)}%
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Avg Pts</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
-                  {stats.favoriteStats.asFavorite.avgPoints.toFixed(1)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">FP1K</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">FP1K as Fav</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.favoriteStats.asFavorite.avpa.toFixed(2)}
                 </span>
               </div>
@@ -552,29 +493,26 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
 
           {/* Beat Favorites */}
           <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
-            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Beat Favorites</h4>
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2">Giant Killer</h4>
+            <p className="text-[10px] text-[var(--text-tertiary)] mb-3 leading-tight">
+              How often they win when NOT the favorite (3/1+ odds) - upsetting expectations.
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Times Won (3/1+)</span>
-                <span className="text-[13px] font-semibold text-orange-500">
+                <span className="text-[11px] text-[var(--text-secondary)]">Wins at 3/1+</span>
+                <span className="text-[12px] font-semibold text-orange-500">
                   {stats.favoriteStats.beatFavoriteCount}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Win Rate (3/1+)</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">Win Rate (3/1+)</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.favoriteStats.beatFavoritePct.toFixed(1)}%
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Non-Fav Starts</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
-                  {stats.favoriteStats.notFavorite.starts}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-[var(--text-secondary)]">Non-Fav FP1K</span>
-                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                <span className="text-[11px] text-[var(--text-secondary)]">FP1K as Longshot</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">
                   {stats.favoriteStats.notFavorite.avpa.toFixed(2)}
                 </span>
               </div>
