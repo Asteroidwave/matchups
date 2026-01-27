@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { MatchupCard } from "@/components/cards/MatchupCard";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { RoundPick, Connection, Matchup } from "@/types";
-import { X, Settings, Info, Calendar, ChevronDown } from "lucide-react";
+import { X, Settings, Info, ChevronDown, Users, Trophy, ShoppingCart } from "lucide-react";
 
 export default function MatchupsPage() {
   const router = useRouter();
@@ -48,6 +48,9 @@ export default function MatchupsPage() {
   const [roleFilter, setRoleFilter] = useState<"all" | "jockey" | "trainer" | "sire" | "mixed">("all");
   const [sortBy, setSortBy] = useState<"none" | "salary-high" | "salary-low" | "apps-high" | "apps-low" | "avpa-high" | "avpa-low">("none");
   const [isSortOpen, setIsSortOpen] = useState(false);
+  
+  // Mobile panel state: which panel is active on mobile/tablet
+  const [mobileActivePanel, setMobileActivePanel] = useState<"starters" | "players" | "picks">("players");
 
   const sortLabels: Record<typeof sortBy, string> = {
     "none": "None",
@@ -55,8 +58,8 @@ export default function MatchupsPage() {
     "salary-low": "Salary (Low)",
     "apps-high": "Apps (High)",
     "apps-low": "Apps (Low)",
-    "avpa-high": "AVPA (High)",
-    "avpa-low": "AVPA (Low)",
+    "avpa-high": "FP1K (High)",
+    "avpa-low": "FP1K (Low)",
   };
   
   // Filter and sort matchups
@@ -346,29 +349,84 @@ export default function MatchupsPage() {
   }
   
   return (
-    <div className="h-[calc(100vh-4rem)] bg-[var(--page-bg)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
-      <div className="flex-1 flex gap-5 px-5 py-5 min-h-0" style={{ overscrollBehavior: 'contain' }}>
-        {/* Left Panel - Starters Window (fixed to Figma width 496px) */}
-        <div className="w-[496px] flex-shrink-0 h-full min-h-0">
-          <StartersWindow
-            connections={connections}
-            selectedConnection={filteredConnection}
-            onConnectionClick={(conn) => {
-              handleConnectionClick(conn);
-              if (!conn) {
-                setHighlightedConnectionId(null);
-              }
-            }}
-            onConnectionBoxClick={handleConnectionBoxClick}
-            matchups={matchups}
-            onConnectionClickToMatchup={scrollToMatchupForConnection}
-            selectedTracks={selectedTracks}
-            selectedDate={selectedDate}
-          />
+    <div className="h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-4rem)] bg-[var(--page-bg)] overflow-hidden flex flex-col" style={{ overscrollBehavior: 'contain' }}>
+      {/* Mobile Tab Bar */}
+      <div className="lg:hidden flex-shrink-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] px-2 py-2">
+        <div className="flex gap-1">
+          <button
+            onClick={() => setMobileActivePanel("starters")}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mobileActivePanel === "starters"
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--surface-2)] text-[var(--text-secondary)]"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span className="hidden sm:inline">Starters</span>
+          </button>
+          <button
+            onClick={() => setMobileActivePanel("players")}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              mobileActivePanel === "players"
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--surface-2)] text-[var(--text-secondary)]"
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            <span className="hidden sm:inline">Players</span>
+          </button>
+          <button
+            onClick={() => setMobileActivePanel("picks")}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors relative ${
+              mobileActivePanel === "picks"
+                ? "bg-[var(--brand)] text-white"
+                : "bg-[var(--surface-2)] text-[var(--text-secondary)]"
+            }`}
+          >
+            <ShoppingCart className="w-4 h-4" />
+            <span className="hidden sm:inline">Picks</span>
+            {selectedPicks.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {selectedPicks.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex gap-2 sm:gap-3 lg:gap-5 px-2 sm:px-3 lg:px-5 py-2 sm:py-3 lg:py-5 min-h-0" style={{ overscrollBehavior: 'contain' }}>
+        {/* Left Panel - Starters Window */}
+        {/* Hidden on mobile unless active, collapsible on tablet, visible on desktop */}
+        <div className={`
+          ${mobileActivePanel === "starters" ? "flex" : "hidden"} 
+          lg:flex
+          w-full lg:w-[400px] xl:w-[496px] flex-shrink-0 h-full min-h-0
+        `}>
+          <div className="w-full">
+            <StartersWindow
+              connections={connections}
+              selectedConnection={filteredConnection}
+              onConnectionClick={(conn) => {
+                handleConnectionClick(conn);
+                if (!conn) {
+                  setHighlightedConnectionId(null);
+                }
+              }}
+              onConnectionBoxClick={handleConnectionBoxClick}
+              matchups={matchups}
+              onConnectionClickToMatchup={scrollToMatchupForConnection}
+              selectedTracks={selectedTracks}
+              selectedDate={selectedDate}
+            />
+          </div>
         </div>
         
         {/* Middle Panel - Matchups/Players */}
-        <div className="flex-1 min-w-0 min-h-0">
+        <div className={`
+          ${mobileActivePanel === "players" ? "flex" : "hidden"} 
+          lg:flex
+          flex-1 min-w-0 min-h-0
+        `}>
           <Card className="bg-[var(--surface-1)] rounded-lg shadow-lg border border-[var(--content-15)] h-full flex flex-col overflow-hidden overscroll-contain">
             {/* Header - Same line as other panels */}
             <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
@@ -385,10 +443,10 @@ export default function MatchupsPage() {
               </div>
             </div>
             
-            {/* Filter and Sort Bar */}
-            <div className="flex-shrink-0 px-4 py-2 border-b border-[var(--content-15)] flex items-center justify-between gap-4">
-              {/* Role Filter Tabs */}
-              <div className="flex items-center gap-1">
+            {/* Filter and Sort Bar - Responsive */}
+            <div className="flex-shrink-0 px-2 sm:px-4 py-2 border-b border-[var(--content-15)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+              {/* Role Filter Tabs - Scrollable on mobile */}
+              <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-hide">
                 {[
                   { key: "all", label: "All" },
                   { key: "jockey", label: "Jockeys" },
@@ -399,7 +457,7 @@ export default function MatchupsPage() {
                   <button
                     key={tab.key}
                     onClick={() => setRoleFilter(tab.key as typeof roleFilter)}
-                    className={`px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+                    className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-[13px] font-medium transition-colors whitespace-nowrap flex-shrink-0 ${
                       roleFilter === tab.key
                         ? "bg-[var(--brand)] text-white"
                         : "bg-[var(--surface-2)] text-[var(--text-secondary)] hover:bg-[var(--surface-3)]"
@@ -411,19 +469,21 @@ export default function MatchupsPage() {
               </div>
               
               {/* Sort Dropdown */}
-              <div className="relative flex items-center gap-2">
-                <span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
+              <div className="relative flex items-center gap-2 flex-shrink-0">
+                <span className="text-[11px] sm:text-[12px] text-[var(--text-tertiary)] hidden sm:inline">Sort:</span>
                 <button
                   onClick={() => setIsSortOpen((v) => !v)}
-                  className="px-3 py-1.5 rounded-md text-[13px] bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] hover:border-[var(--brand)] flex items-center gap-1"
+                  className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[11px] sm:text-[13px] bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] hover:border-[var(--brand)] flex items-center gap-1"
                 >
-                  {sortLabels[sortBy]} <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
+                  <span className="hidden sm:inline">{sortLabels[sortBy]}</span>
+                  <span className="sm:hidden">{sortLabels[sortBy].split(" ")[0]}</span>
+                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-[var(--text-tertiary)]" />
                 </button>
-                <span className="text-[12px] text-[var(--text-tertiary)]">
-                  Matchups {filteredAndSortedMatchups.length}
+                <span className="text-[11px] sm:text-[12px] text-[var(--text-tertiary)]">
+                  <span className="hidden sm:inline">Matchups</span> {filteredAndSortedMatchups.length}
                 </span>
                 {isSortOpen && (
-                  <div className="absolute top-10 right-0 w-48 bg-[var(--surface-1)] border border-[var(--content-15)] rounded-md shadow-lg z-10">
+                  <div className="absolute top-8 sm:top-10 right-0 w-40 sm:w-48 bg-[var(--surface-1)] border border-[var(--content-15)] rounded-md shadow-lg z-10">
                     {Object.entries(sortLabels).map(([key, label]) => (
                       <button
                         key={key}
@@ -431,7 +491,7 @@ export default function MatchupsPage() {
                           setSortBy(key as typeof sortBy);
                           setIsSortOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 text-[13px] hover:bg-[var(--surface-2)] ${
+                        className={`w-full text-left px-3 py-2 text-[12px] sm:text-[13px] hover:bg-[var(--surface-2)] ${
                           sortBy === key ? "text-[var(--brand)] font-semibold" : "text-[var(--text-primary)]"
                         }`}
                       >
@@ -477,13 +537,17 @@ export default function MatchupsPage() {
         </div>
         
         {/* Right Panel - Lineup/Selections */}
-        <div className="w-80 flex-shrink-0 flex flex-col h-full min-h-0">
+        <div className={`
+          ${mobileActivePanel === "picks" ? "flex" : "hidden"} 
+          lg:flex
+          w-full lg:w-72 xl:w-80 flex-shrink-0 flex-col h-full min-h-0
+        `}>
           <Card className="bg-[var(--surface-1)] rounded-lg shadow-lg border border-[var(--content-15)] h-full flex flex-col overflow-hidden">
           {/* Header - Same line as other panels */}
-          <div className="flex-shrink-0 px-4 py-4 border-b border-[var(--content-15)]">
+          <div className="flex-shrink-0 px-3 sm:px-4 py-3 sm:py-4 border-b border-[var(--content-15)]">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-[var(--text-primary)]">
-                Your picks <span className="bg-[var(--blue-50)] text-[var(--brand)] rounded-full px-2 py-0.5 text-sm">{selectedPicks.length}</span>
+              <h2 className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
+                Your picks <span className="bg-[var(--blue-50)] text-[var(--brand)] rounded-full px-2 py-0.5 text-xs sm:text-sm">{selectedPicks.length}</span>
               </h2>
               <Settings className="w-4 h-4 text-gray-400 cursor-pointer hover:text-gray-600" />
             </div>

@@ -14,7 +14,7 @@ export function SetStats({ setSide }: SetStatsProps) {
   const totalOdds = setSide.connections.reduce((sum, c) => sum + (c.avgOdds * c.apps), 0);
   const avgOdds = totalApps > 0 ? totalOdds / totalApps : 0;
   
-  // Average of AVPA 30D (weighted by apps)
+  // Average of FP1K 30D (weighted by apps)
   const totalAvpa = setSide.connections.reduce((sum, c) => sum + (c.avpa30d * c.apps), 0);
   const avgAvpa30d = totalApps > 0 ? totalAvpa / totalApps : 0;
   
@@ -33,7 +33,7 @@ export function SetStats({ setSide }: SetStatsProps) {
           </div>
         </div>
         <div>
-          <div className="text-gray-500">AVPA (30D)</div>
+          <div className="text-gray-500">FP1K (30D)</div>
           <div className="font-bold text-gray-900">
             {avgAvpa30d > 0 ? avgAvpa30d.toFixed(1) : "—"}
           </div>

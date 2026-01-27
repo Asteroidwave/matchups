@@ -74,7 +74,7 @@ function ConnectionCompareCard({
           <div className="font-bold text-[var(--text-primary)]">{connection.avgOdds.toFixed(2)}</div>
               </div>
               <div>
-          <div className="text-[var(--text-tertiary)] text-xs">AVPA (90D)</div>
+          <div className="text-[var(--text-tertiary)] text-xs">FP1K (90D)</div>
           <div className="font-bold text-[var(--text-primary)]">{connection.avpa30d.toFixed(2)}</div>
         </div>
         <div className="col-span-2 pt-2 border-t border-[var(--border)]">

@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { X, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { getConnectionHistory } from "@/lib/parseJson";
+import { ConnectionStatsTab } from "./ConnectionStatsTab";
 
 interface ConnectionModalProps {
   connection: Connection | null;
@@ -78,7 +79,7 @@ function PastPerformanceTab({
           <div className="col-span-4">Race Day</div>
           <div className="col-span-2 text-right">Salary</div>
           <div className="col-span-2 text-right">Appearances</div>
-          <div className="col-span-2 text-right">AVPA</div>
+          <div className="col-span-2 text-right">FP1K</div>
           <div className="col-span-2 text-right">Points</div>
         </div>
       </div>
@@ -97,7 +98,7 @@ function PastPerformanceTab({
           // Calculate summary stats for this day
           const totalSalary = races.reduce((sum, r) => sum + (r.salary || 0), 0);
           const appearances = races.length;
-          const avgAVPA = races.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
+          const avgFP1K = races.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
           const totalScore = races.reduce((sum, r) => sum + (r.totalPoints || 0), 0);
           
           const isExpanded = expandedRows.has(key);
@@ -126,7 +127,7 @@ function PastPerformanceTab({
                     {appearances}
                   </div>
                   <div className="col-span-2 text-right text-[var(--text-primary)]">
-                    {avgAVPA.toFixed(2)}
+                    {avgFP1K.toFixed(2)}
                   </div>
                   <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
                     {totalScore.toFixed(2)}
@@ -202,7 +203,7 @@ const trackColors: Record<string, { bg: string; border: string }> = {
 };
 
 export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModalProps) {
-  const [activeTab, setActiveTab] = useState<"connected" | "past">("connected");
+  const [activeTab, setActiveTab] = useState<"connected" | "stats" | "past">("connected");
   const { connections: allConnections, selectedTracks } = useApp();
   const [pastPerformance, setPastPerformance] = useState<PastPerformanceEntry[]>([]);
   const [isLoadingPP, setIsLoadingPP] = useState(false);
@@ -364,7 +365,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
-                <div className="text-[12px] font-medium leading-[18px] text-white/80">AVPA</div>
+                <div className="text-[12px] font-medium leading-[18px] text-white/80">FP1K</div>
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
@@ -391,6 +392,19 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
           >
             <span>Connected Horses</span>
             {activeTab === "connected" && (
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("stats")}
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
+              activeTab === "stats"
+                ? "text-[var(--text-primary)]"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span>Stats</span>
+            {activeTab === "stats" && (
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
           </button>
@@ -527,6 +541,14 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                 </tbody>
               </table>
             </div>
+          )}
+          
+          {activeTab === "stats" && (
+            <ConnectionStatsTab
+              connectionName={connection.name}
+              role={connection.role}
+              trackCodes={selectedTracks.length > 0 ? selectedTracks : ['AQU']}
+            />
           )}
           
           {activeTab === "past" && (

@@ -7,6 +7,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X, ChevronLeft, ChevronRight, ChevronDown, Loader2 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { getConnectionHistory } from "@/lib/parseJson";
+import { ConnectionStatsTab } from "./ConnectionStatsTab";
 
 interface ComparisonModalProps {
   matchup: Matchup | null;
@@ -15,9 +16,9 @@ interface ComparisonModalProps {
 }
 
 export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalProps) {
-  const [activeTabSetA, setActiveTabSetA] = useState<"connected" | "past">("connected");
-  const [activeTabSetB, setActiveTabSetB] = useState<"connected" | "past">("connected");
-  const [activeTabSetC, setActiveTabSetC] = useState<"connected" | "past">("connected");
+  const [activeTabSetA, setActiveTabSetA] = useState<"connected" | "stats" | "past">("connected");
+  const [activeTabSetB, setActiveTabSetB] = useState<"connected" | "stats" | "past">("connected");
+  const [activeTabSetC, setActiveTabSetC] = useState<"connected" | "stats" | "past">("connected");
   // Track which connection index is being viewed for each set (for multi-connection sets)
   const [connectionIndexA, setConnectionIndexA] = useState(0);
   const [connectionIndexB, setConnectionIndexB] = useState(0);
@@ -125,8 +126,8 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
   
   const renderConnectionModal = (
     connection: Connection,
-    activeTab: "connected" | "past",
-    setActiveTab: (tab: "connected" | "past") => void,
+    activeTab: "connected" | "stats" | "past",
+    setActiveTab: (tab: "connected" | "stats" | "past") => void,
     setId: "A" | "B" | "C" = "A",
     connectionIndex: number = 0,
     totalConnections: number = 1,
@@ -286,7 +287,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/70">AVPA</div>
+                <div className="text-[11px] font-medium leading-[16px] text-white/70">FP1K</div>
               </div>
               <div>
                 <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
@@ -302,29 +303,42 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
         </div>
         
         {/* Tabs */}
-        <div className="bg-[var(--surface-1)] border-b border-[var(--content-16)] flex items-end px-5 pt-2 h-12 flex-shrink-0">
+        <div className="bg-[var(--surface-1)] border-b border-[var(--content-16)] flex items-end px-3 pt-2 h-12 flex-shrink-0">
           <button
             onClick={() => setActiveTab("connected")}
-            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
+            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
               activeTab === "connected"
                 ? "text-[var(--text-primary)]"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            <span>Connected Horses</span>
+            <span>Horses</span>
             {activeTab === "connected" && (
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
           </button>
           <button
+            onClick={() => setActiveTab("stats")}
+            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
+              activeTab === "stats"
+                ? "text-[var(--text-primary)]"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <span>Stats</span>
+            {activeTab === "stats" && (
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab("past")}
-            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
+            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
               activeTab === "past"
                 ? "text-[var(--text-primary)]"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            <span>Past Performance</span>
+            <span>History</span>
             {activeTab === "past" && (
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
@@ -470,6 +484,14 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
             </div>
           )}
           
+          {activeTab === "stats" && (
+            <ConnectionStatsTab
+              connectionName={connection.name}
+              role={connection.role}
+              trackCodes={selectedTracks.length > 0 ? selectedTracks : ['AQU']}
+            />
+          )}
+          
           {activeTab === "past" && (
             <div className="overflow-x-auto">
               {isLoadingPP ? (
@@ -489,7 +511,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                       <div className="col-span-4">Race Day</div>
                       <div className="col-span-2 text-right">Salary</div>
                       <div className="col-span-2 text-right">Appearances</div>
-                      <div className="col-span-2 text-right">AVPA</div>
+                      <div className="col-span-2 text-right">FP1K</div>
                       <div className="col-span-2 text-right">Points</div>
                     </div>
                   </div>
@@ -513,7 +535,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                         
                         const totalSalary = ppEntries.reduce((sum, r) => sum + (r.salary || 0), 0);
                         const appearances = ppEntries.length;
-                        const avgAVPA = ppEntries.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
+                        const avgFP1K = ppEntries.reduce((sum, r) => sum + (r.avpa || 0), 0) / appearances;
                         const totalScore = ppEntries.reduce((sum, r) => sum + (r.totalPoints || 0), 0);
                         const isExpanded = expandedRows.has(key);
                         
@@ -541,7 +563,7 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
                                   {appearances}
                                 </div>
                                 <div className="col-span-2 text-right text-[var(--text-primary)]">
-                                  {avgAVPA.toFixed(2)}
+                                  {avgFP1K.toFixed(2)}
                                 </div>
                                 <div className="col-span-2 text-right font-semibold text-[var(--text-primary)]">
                                   {totalScore.toFixed(2)}

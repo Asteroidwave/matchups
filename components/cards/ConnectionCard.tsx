@@ -73,15 +73,15 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
   
   return (
     <div 
-      className={`w-full text-left rounded-lg border-2 p-4 ${getHighlightStyles()} ${onClick ? "cursor-pointer transition-all" : ""}`}
+      className={`w-full text-left rounded-lg border-2 p-2 sm:p-4 ${getHighlightStyles()} ${onClick ? "cursor-pointer transition-all" : ""}`}
       onClick={onClick}
     >
       {/* Name and Salary Row */}
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-1 sm:mb-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-3">
             <div 
-              className={`font-bold ${compact ? "text-base" : "text-lg"} truncate ${
+              className={`font-bold ${compact ? "text-sm sm:text-base" : "text-base sm:text-lg"} truncate ${
                 highlightColor ? highlightColor.text : "text-[var(--text-primary)]"
               } ${
                 onNameClick ? "hover:text-[var(--btn-link)] cursor-pointer" : ""
@@ -96,14 +96,14 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
             >
               {connection.name}
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
               {/* Role badge (J/T/S) - solid colored */}
-              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold text-white ${roleColor.badge}`}>
+              <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-semibold text-white ${roleColor.badge}`}>
                 {connection.role.toUpperCase()}
               </span>
               {/* Track badges - each track has unique color */}
               {connection.trackSet.map((track) => (
-                <span key={track} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getTrackBadgeStyle(track)}`}>
+                <span key={track} className={`px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold ${getTrackBadgeStyle(track)}`}>
                     {track}
                   </span>
               ))}
@@ -111,8 +111,8 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
           </div>
         </div>
         {showSalary && (
-          <div className="text-right ml-4">
-            <div className="text-lg font-bold text-[var(--text-primary)]">
+          <div className="text-right ml-2 sm:ml-4">
+            <div className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
               ${connection.salarySum.toLocaleString()}
             </div>
           </div>
@@ -120,25 +120,25 @@ export function ConnectionCard({ connection, compact = false, onClick, onNameCli
       </div>
       
       {/* Divider */}
-      <div className="border-t border-[var(--content-15)] my-2"></div>
+      <div className="border-t border-[var(--content-15)] my-1 sm:my-2"></div>
       
       {/* Stats - Left Aligned */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-1 sm:gap-3">
         <div className="text-left">
-          <div className="text-xs text-[var(--text-primary)]/60 mb-1">Apps</div>
-          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-sm" : "text-base"}`}>
+          <div className="text-[10px] sm:text-xs text-[var(--text-primary)]/60 mb-0.5 sm:mb-1">Apps</div>
+          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"}`}>
             {connection.apps}
           </div>
         </div>
         <div className="text-left">
-          <div className="text-xs text-[var(--text-primary)]/60 mb-1">Avg Odds</div>
-          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-sm" : "text-base"}`}>
+          <div className="text-[10px] sm:text-xs text-[var(--text-primary)]/60 mb-0.5 sm:mb-1">Avg Odds</div>
+          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"}`}>
             {connection.avgOdds > 0 ? connection.avgOdds.toFixed(1) : "—"}
           </div>
         </div>
         <div className="text-left">
-          <div className="text-xs text-[var(--text-primary)]/60 mb-1">AVPA (30D)</div>
-          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-sm" : "text-base"}`}>
+          <div className="text-[10px] sm:text-xs text-[var(--text-primary)]/60 mb-0.5 sm:mb-1">FP1K</div>
+          <div className={`font-bold text-[var(--text-primary)] ${compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"}`}>
             {connection.avpa30d > 0 ? connection.avpa30d.toFixed(1) : "—"}
           </div>
         </div>

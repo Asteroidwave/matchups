@@ -1,0 +1,668 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { ConnectionComprehensiveStats, getConnectionComprehensiveStats } from "@/lib/parseJson";
+
+interface ConnectionStatsTabProps {
+  connectionName: string;
+  role: 'jockey' | 'trainer' | 'sire';
+  trackCodes: string[];
+}
+
+// FP1K Performance Bar Chart Component (DraftKings style)
+function AvpaPerformanceChart({ 
+  data, 
+  avgAvpa 
+}: { 
+  data: { date: string; avpa: number; races: number; points: number; salary: number }[];
+  avgAvpa: number;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  
+  if (data.length === 0) {
+    return (
+      <div className="text-center py-8 text-[var(--text-secondary)]">
+        No performance data available
+      </div>
+    );
+  }
+
+  const maxAvpa = Math.max(...data.map(d => d.avpa), avgAvpa) * 1.2;
+  const barAreaHeight = 80; // Fixed pixel height for bar area
+  const avgLineOffset = maxAvpa > 0 ? (avgAvpa / maxAvpa) * barAreaHeight : 0;
+
+  return (
+    <div className="relative">
+      {/* Header with label and yearly average */}
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[12px] text-[var(--text-secondary)]">Recent FP1K Performance</span>
+        <span className="text-[12px] text-[var(--text-secondary)]">
+          Avg FP1K (Year): <span className="font-semibold text-orange-400">{avgAvpa.toFixed(1)}</span>
+        </span>
+      </div>
+      
+      {/* Chart area with bars - full width */}
+      <div className="relative">
+        {/* Average line spanning full width */}
+        <div 
+          className="absolute left-0 right-0 border-t-2 border-dashed border-orange-400 z-10 pointer-events-none"
+          style={{ bottom: `${avgLineOffset + 44}px` }}
+        >
+          <span className="absolute -right-1 -top-4 text-[10px] text-orange-400 font-medium bg-[var(--surface-2)] px-1 rounded">
+            {avgAvpa.toFixed(1)}
+          </span>
+        </div>
+        
+        {/* Bars grid - full width */}
+        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${data.length}, 1fr)` }}>
+          {data.map((item, idx) => {
+            const barHeight = maxAvpa > 0 ? Math.max((item.avpa / maxAvpa) * barAreaHeight, 4) : 4;
+            const isAboveAvg = item.avpa >= avgAvpa;
+            const formattedDate = new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { 
+              month: '2-digit', 
+              day: '2-digit' 
+            });
+            
+            return (
+              <div 
+                key={`avpa-${item.date}-${idx}`} 
+                className="flex flex-col items-center relative group cursor-pointer"
+                onMouseEnter={() => setHoveredIdx(idx)}
+                onMouseLeave={() => setHoveredIdx(null)}
+              >
+                {/* Hover tooltip - on top, wider layout */}
+                {hoveredIdx === idx && (
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded-lg p-3 shadow-lg min-w-[160px]">
+                    <div className="text-[12px] font-semibold text-[var(--text-primary)] mb-2 text-center">
+                      {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                      <span className="text-[var(--text-tertiary)]">Races</span>
+                      <span className="text-[var(--text-primary)] font-medium text-right">{item.races}</span>
+                      <span className="text-[var(--text-tertiary)]">Points</span>
+                      <span className="text-[var(--text-primary)] font-medium text-right">{item.points.toFixed(1)}</span>
+                      <span className="text-[var(--text-tertiary)]">Salary</span>
+                      <span className="text-[var(--text-primary)] font-medium text-right">${item.salary.toLocaleString()}</span>
+                      <span className="text-[var(--text-tertiary)]">FP1K</span>
+                      <span className={`font-semibold text-right ${isAboveAvg ? 'text-orange-400' : 'text-gray-400'}`}>{item.avpa.toFixed(2)}</span>
+                    </div>
+                    {/* Tooltip arrow pointing down */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--surface-3)]" />
+                  </div>
+                )}
+                
+                {/* FP1K label above bar - colored based on avg */}
+                <span className={`text-[11px] font-semibold mb-1 ${
+                  isAboveAvg ? 'text-orange-400' : 'text-[var(--text-secondary)]'
+                }`}>
+                  {item.avpa.toFixed(1)}
+                </span>
+                
+                {/* Bar container */}
+                <div className="relative w-full" style={{ height: `${barAreaHeight}px` }}>
+                  {/* Bar */}
+                  <div 
+                    className={`absolute bottom-0 left-1 right-1 rounded-t-sm transition-all ${
+                      isAboveAvg ? 'bg-orange-500' : 'bg-gray-500'
+                    } ${hoveredIdx === idx ? 'opacity-100' : 'opacity-80'}`}
+                    style={{ height: `${barHeight}px` }}
+                  />
+                </div>
+                
+                {/* Date label */}
+                <span className="text-[9px] text-[var(--text-tertiary)] mt-1">
+                  {formattedDate}
+                </span>
+                
+                {/* Races count */}
+                <span className="text-[8px] text-[var(--text-tertiary)]">
+                  ({item.races})
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Stats Table Component (TwinSpires style)
+function StatsTable({ 
+  title,
+  headers,
+  rows,
+  highlightFirst = false,
+}: { 
+  title: string;
+  headers: string[];
+  rows: (string | number)[][];
+  highlightFirst?: boolean;
+}) {
+  return (
+    <div className="mb-6">
+      <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2 px-1">
+        {title}
+      </h4>
+      <div className="border border-[var(--content-15)] rounded-lg overflow-hidden">
+        {/* Header */}
+        <div className="bg-[var(--surface-2)] border-b border-[var(--content-15)]">
+          <div className="grid gap-2 px-3 py-2" style={{ 
+            gridTemplateColumns: `minmax(100px, 1.5fr) repeat(${headers.length - 1}, 1fr)` 
+          }}>
+            {headers.map((header, idx) => (
+              <div 
+                key={idx} 
+                className={`text-[11px] font-semibold text-[var(--text-tertiary)] uppercase ${
+                  idx > 0 ? 'text-right' : ''
+                }`}
+              >
+                {header}
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Rows */}
+        <div className="divide-y divide-[var(--content-15)]">
+          {rows.map((row, rowIdx) => (
+            <div 
+              key={rowIdx} 
+              className={`grid gap-2 px-3 py-2 ${
+                highlightFirst && rowIdx === 0 ? 'bg-[var(--brand)]/5' : ''
+              }`}
+              style={{ 
+                gridTemplateColumns: `minmax(100px, 1.5fr) repeat(${headers.length - 1}, 1fr)` 
+              }}
+            >
+              {row.map((cell, cellIdx) => (
+                <div 
+                  key={cellIdx} 
+                  className={`text-[13px] ${
+                    cellIdx > 0 ? 'text-right' : ''
+                  } ${
+                    cellIdx === 0 
+                      ? 'font-medium text-[var(--text-primary)]' 
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  {typeof cell === 'number' 
+                    ? (cell % 1 === 0 ? cell : cell.toFixed(1))
+                    : cell
+                  }
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ConnectionStatsTab({ connectionName, role, trackCodes }: ConnectionStatsTabProps) {
+  const [stats, setStats] = useState<ConnectionComprehensiveStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const data = await getConnectionComprehensiveStats(connectionName, role, trackCodes);
+        setStats(data);
+      } catch (err) {
+        console.error('Failed to load connection stats:', err);
+        setError('Failed to load stats');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadStats();
+  }, [connectionName, role, trackCodes]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--brand)]" />
+        <span className="ml-2 text-[var(--text-secondary)]">Loading stats...</span>
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="text-center py-12 text-[var(--text-secondary)]">
+        {error || 'No stats available'}
+      </div>
+    );
+  }
+
+  // Prepare key stats table rows
+  const keyStatsHeaders = ['Period', 'Starts', 'Win', 'Place', 'Show', 'Win%', 'ITM%', 'FP1K'];
+  const keyStatsRows = stats.keyStats.map(s => [
+    s.period,
+    s.starts,
+    s.wins,
+    s.places,
+    s.shows,
+    `${s.winPct.toFixed(0)}%`,
+    `${s.itmPct.toFixed(0)}%`,
+    s.avpa.toFixed(2),
+  ]);
+
+  // Prepare surface stats table rows
+  const surfaceHeaders = ['Surface', 'Starts', 'Win%', 'ITM%', 'Avg Pts', 'FP1K'];
+  const surfaceRows = stats.surfaceStats
+    .filter(s => s.starts > 0)
+    .map(s => [
+      s.surface,
+      s.starts,
+      `${s.winPct.toFixed(0)}%`,
+      `${s.itmPct.toFixed(0)}%`,
+      s.avgPoints.toFixed(1),
+      s.avpa.toFixed(2),
+    ]);
+
+  // Prepare odds stats table rows
+  const oddsHeaders = ['Odds Range', 'Starts', 'Win%', 'Avg Pts', 'FP1K'];
+  const oddsRows = stats.oddsStats
+    .filter(s => s.starts > 0)
+    .map(s => [
+      s.label,
+      s.starts,
+      `${s.winPct.toFixed(0)}%`,
+      s.avgPoints.toFixed(1),
+      s.avpa.toFixed(2),
+    ]);
+
+  // Prepare field size stats table rows
+  const fieldSizeHeaders = ['Field Size', 'Starts', 'Win%', 'ITM%', 'Avg Pts'];
+  const fieldSizeRows = stats.fieldSizeStats
+    .filter(s => s.starts > 0)
+    .map(s => [
+      s.fieldSize,
+      s.starts,
+      `${s.winPct.toFixed(0)}%`,
+      `${s.itmPct.toFixed(0)}%`,
+      s.avgPoints.toFixed(1),
+    ]);
+
+  // Prepare FP1K chart data with points and salary for tooltip
+  const avpaChartData = stats.recentPerformance.map(p => ({
+    date: p.date,
+    avpa: p.avpa,
+    races: p.races,
+    points: p.points,
+    salary: p.salary,
+  }));
+
+  return (
+    <div className="px-5 py-4">
+      {/* FP1K Performance Graph */}
+      <div className="mb-6 p-4 bg-[var(--surface-2)] rounded-lg">
+        <AvpaPerformanceChart 
+          data={avpaChartData} 
+          avgAvpa={stats.overallAvgAvpa}
+        />
+      </div>
+
+      {/* Key Stats */}
+      <StatsTable
+        title="Key Stats"
+        headers={keyStatsHeaders}
+        rows={keyStatsRows}
+        highlightFirst
+      />
+
+      {/* Surface Stats */}
+      {surfaceRows.length > 0 && (
+        <StatsTable
+          title="Surface Breakdown"
+          headers={surfaceHeaders}
+          rows={surfaceRows}
+        />
+      )}
+
+      {/* Odds-Based Stats */}
+      {oddsRows.length > 0 && (
+        <StatsTable
+          title="Performance by Odds"
+          headers={oddsHeaders}
+          rows={oddsRows}
+        />
+      )}
+
+      {/* Field Size Stats */}
+      {fieldSizeRows.length > 0 && (
+        <StatsTable
+          title="Performance by Field Size"
+          headers={fieldSizeHeaders}
+          rows={fieldSizeRows}
+        />
+      )}
+
+      {/* Distance Stats */}
+      {stats.distanceStats && stats.distanceStats.filter(s => s.starts > 0).length > 0 && (
+        <StatsTable
+          title="Performance by Distance"
+          headers={['Distance', 'Starts', 'Win%', 'ITM%', 'Avg Pts', 'FP1K']}
+          rows={stats.distanceStats.filter(s => s.starts > 0).map(s => [
+            s.distance,
+            s.starts,
+            `${s.winPct.toFixed(0)}%`,
+            `${s.itmPct.toFixed(0)}%`,
+            s.avgPoints.toFixed(1),
+            s.avpa.toFixed(2),
+          ])}
+        />
+      )}
+
+      {/* Post Position Stats */}
+      {stats.postPositionStats && stats.postPositionStats.filter(s => s.starts > 0).length > 0 && (
+        <StatsTable
+          title="Performance by Post Position"
+          headers={['Position', 'Starts', 'Win%', 'Avg Pts', 'FP1K']}
+          rows={stats.postPositionStats.filter(s => s.starts > 0).map(s => [
+            s.position,
+            s.starts,
+            `${s.winPct.toFixed(0)}%`,
+            s.avgPoints.toFixed(1),
+            s.avpa.toFixed(2),
+          ])}
+        />
+      )}
+
+      {/* Consistency & Upset Stats Cards */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Consistency Score Card */}
+        {stats.consistencyScore && (
+          <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Consistency</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Rating</span>
+                <span className={`text-[13px] font-semibold px-2 py-0.5 rounded ${
+                  stats.consistencyScore.rating === 'Very Consistent' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' :
+                  stats.consistencyScore.rating === 'Consistent' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' :
+                  stats.consistencyScore.rating === 'Variable' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400' :
+                  'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
+                }`}>
+                  {stats.consistencyScore.rating}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">FP1K Std Dev</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.consistencyScore.avpaStdDev.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Points Std Dev</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.consistencyScore.pointsStdDev.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upset Stats Card */}
+        {stats.upsetStats && (
+          <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Upset Frequency</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">ITM at 3/1+</span>
+                <span className="text-[13px] font-semibold text-orange-500">
+                  {stats.upsetStats.upsets} times
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Upset Rate</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.upsetStats.upsetPct.toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Avg Pts (Upset)</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.upsetStats.avgPointsWhenUpset.toFixed(1)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Current Horses Section */}
+      {stats.currentHorsesStats && stats.currentHorsesStats.totalHorses > 0 && (
+        <div className="mb-6">
+          <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2 px-1">
+            Current Horses ({stats.currentHorsesStats.totalHorses})
+          </h4>
+          
+          {/* Summary stats */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Avg Odds</div>
+              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
+                {stats.currentHorsesStats.avgOdds.toFixed(1)}/1
+              </div>
+            </div>
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Avg Field</div>
+              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
+                {stats.currentHorsesStats.avgFieldSize.toFixed(0)}
+              </div>
+            </div>
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Favorites</div>
+              <div className="text-[14px] font-semibold text-green-500">
+                {stats.currentHorsesStats.favoriteCount}
+              </div>
+            </div>
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Longshots</div>
+              <div className="text-[14px] font-semibold text-orange-500">
+                {stats.currentHorsesStats.longshotCount}
+              </div>
+            </div>
+          </div>
+          
+          {/* Horse list */}
+          <div className="border border-[var(--content-15)] rounded-lg overflow-hidden">
+            <div className="bg-[var(--surface-2)] border-b border-[var(--content-15)] px-3 py-2 grid grid-cols-12 gap-2 text-[11px] font-semibold text-[var(--text-tertiary)]">
+              <div className="col-span-4">Horse</div>
+              <div className="col-span-2">Odds</div>
+              <div className="col-span-2">Track</div>
+              <div className="col-span-2">Race</div>
+              <div className="col-span-2">Surface</div>
+            </div>
+            {stats.currentHorsesStats.horses.map((horse, idx) => (
+              <div 
+                key={`horse-${horse.name}-${idx}`}
+                className="px-3 py-2 grid grid-cols-12 gap-2 text-[12px] border-b border-[var(--content-15)] last:border-b-0"
+              >
+                <div className="col-span-4 font-medium text-[var(--text-primary)] truncate">
+                  {horse.name}
+                </div>
+                <div className="col-span-2 text-[var(--text-secondary)]">{horse.odds}</div>
+                <div className="col-span-2 text-[var(--text-secondary)]">{horse.track}</div>
+                <div className="col-span-2 text-[var(--text-secondary)]">R{horse.race}</div>
+                <div className="col-span-2 text-[var(--text-secondary)]">{horse.surface}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Jockey/Trainer Combo Stats */}
+      {stats.comboStats && stats.comboStats.combos.length > 0 && (
+        <StatsTable
+          title={`Best ${stats.comboStats.type === 'trainer' ? 'Trainer' : 'Jockey'} Partners`}
+          headers={['Partner', 'Starts', 'Win%', 'Avg Pts', 'FP1K']}
+          rows={stats.comboStats.combos.map(c => [
+            c.name,
+            c.starts,
+            `${c.winPct.toFixed(0)}%`,
+            c.avgPoints.toFixed(1),
+            c.avpa.toFixed(2),
+          ])}
+        />
+      )}
+
+      {/* Favorite Performance Cards */}
+      {stats.favoriteStats && (
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* As Favorite */}
+          <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">As Favorite (&lt;3/1)</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Starts</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.asFavorite.starts}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Win%</span>
+                <span className="text-[13px] font-semibold text-green-500">
+                  {stats.favoriteStats.asFavorite.winPct.toFixed(0)}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Avg Pts</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.asFavorite.avgPoints.toFixed(1)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">FP1K</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.asFavorite.avpa.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Beat Favorites */}
+          <div className="p-4 bg-[var(--surface-2)] rounded-lg border border-[var(--content-15)]">
+            <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-3">Beat Favorites</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Times Won (3/1+)</span>
+                <span className="text-[13px] font-semibold text-orange-500">
+                  {stats.favoriteStats.beatFavoriteCount}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Win Rate (3/1+)</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.beatFavoritePct.toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Non-Fav Starts</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.notFavorite.starts}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-[var(--text-secondary)]">Non-Fav FP1K</span>
+                <span className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {stats.favoriteStats.notFavorite.avpa.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Final Odds Performance */}
+      {stats.finalOddsStats && (stats.finalOddsStats.steamCount > 0 || stats.finalOddsStats.driftCount > 0) && (
+        <div className="mb-6">
+          <h4 className="text-[14px] font-semibold text-[var(--text-primary)] mb-2 px-1">
+            Market Movement (ML → Final Odds)
+          </h4>
+          
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Avg ML Odds</div>
+              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
+                {stats.finalOddsStats.avgMlOdds.toFixed(1)}/1
+              </div>
+            </div>
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Avg Final Odds</div>
+              <div className="text-[14px] font-semibold text-[var(--text-primary)]">
+                {stats.finalOddsStats.avgFinalOdds.toFixed(1)}/1
+              </div>
+            </div>
+            <div className="p-2 bg-[var(--surface-2)] rounded text-center">
+              <div className="text-[11px] text-[var(--text-tertiary)]">Drift</div>
+              <div className={`text-[14px] font-semibold ${stats.finalOddsStats.driftPct > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                {stats.finalOddsStats.driftPct > 0 ? '+' : ''}{stats.finalOddsStats.driftPct.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          
+          {/* Steam vs Drift Performance */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[12px] font-semibold text-green-500">↓ STEAM</span>
+                <span className="text-[11px] text-[var(--text-tertiary)]">(odds shortened)</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] space-y-1">
+                <div className="flex justify-between">
+                  <span>Races</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.steamCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Win%</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.performanceWhenSteam.winPct.toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg Pts</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.performanceWhenSteam.avgPoints.toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[12px] font-semibold text-red-500">↑ DRIFT</span>
+                <span className="text-[11px] text-[var(--text-tertiary)]">(odds lengthened)</span>
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] space-y-1">
+                <div className="flex justify-between">
+                  <span>Races</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.driftCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Win%</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.performanceWhenDrift.winPct.toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg Pts</span>
+                  <span className="text-[var(--text-primary)]">{stats.finalOddsStats.performanceWhenDrift.avgPoints.toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data source note */}
+      <div className="mt-4 text-center text-[11px] text-[var(--text-tertiary)]">
+        Stats from {stats.tracksIncluded?.join(', ') || trackCodes.join(', ')} • 2025 Season
+      </div>
+    </div>
+  );
+}

@@ -47,7 +47,7 @@ export function SetCard({
   return (
     <div
       className={`
-        rounded-xl border-2 p-4 transition-all
+        rounded-lg sm:rounded-xl border-2 p-2 sm:p-4 transition-all
         ${isSelected 
           ? "border-[var(--brand)] bg-[var(--blue-50)] shadow-md" 
           : "border-[var(--content-15)] bg-[var(--surface-1)] hover:border-[var(--content-9)]"
@@ -58,7 +58,7 @@ export function SetCard({
       <div 
         role="button"
         tabIndex={0}
-        className="bg-[var(--blue-50)] rounded-lg p-3 mb-4 flex items-center justify-between border border-[var(--content-16)] cursor-pointer hover:bg-[var(--blue-50)]/80 transition-colors"
+        className="bg-[var(--blue-50)] rounded-lg p-2 sm:p-3 mb-2 sm:mb-4 flex items-center justify-between border border-[var(--content-16)] cursor-pointer hover:bg-[var(--blue-50)]/80 transition-colors"
         onClick={onSelect}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -68,7 +68,7 @@ export function SetCard({
         }}
       >
         {showSalary ? (
-          <div className="text-2xl font-bold text-[var(--text-primary)]">
+          <div className="text-lg sm:text-2xl font-bold text-[var(--text-primary)]">
             ${setSide.salaryTotal.toLocaleString()}
           </div>
         ) : (
@@ -76,7 +76,7 @@ export function SetCard({
         )}
         <button
           type="button"
-          className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${
+          className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold transition-colors ${
             isSelected 
               ? "bg-[var(--brand)] text-white" 
               : "bg-[var(--surface-2)] text-[var(--text-primary)] border border-[var(--content-15)] hover:bg-[var(--brand)] hover:text-white hover:border-[var(--brand)]"

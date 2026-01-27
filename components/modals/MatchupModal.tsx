@@ -165,7 +165,7 @@ export function MatchupModal({
       apps: filteredApps,
       avgOdds: filteredAvgOdds,
       pointsPer1K: filteredPointsPer1K,
-      avpa30d: conn.avpa30d, // Keep original AVPA 30D as it's not track-specific
+      avpa30d: conn.avpa30d, // Keep original FP1K 30D as it's not track-specific
     };
   };
   
@@ -317,7 +317,7 @@ export function MatchupModal({
                           </div>
                         </div>
                         <div>
-                    <div className="text-xs text-[var(--text-tertiary)] mb-1">AVPA (90D)</div>
+                    <div className="text-xs text-[var(--text-tertiary)] mb-1">FP1K (90D)</div>
                     <div className="font-bold text-sm text-[var(--text-primary)]">
                             {filteredStats.avpa30d > 0 ? filteredStats.avpa30d.toFixed(1) : "—"}
                           </div>
