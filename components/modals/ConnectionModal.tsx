@@ -232,8 +232,8 @@ function furlongsToDistance(furlongs: number): string {
 
 export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModalProps) {
   const [activeTab, setActiveTab] = useState<"connected" | "stats" | "past">("connected");
-  const [showFullRaces, setShowFullRaces] = useState(false);
-  const { connections: allConnections, selectedTracks } = useApp();
+  const [expandedRaces, setExpandedRaces] = useState<Set<string>>(new Set());
+  const { connections: allConnections, selectedTracks, selectedDate } = useApp();
   const [pastPerformance, setPastPerformance] = useState<PastPerformanceEntry[]>([]);
   const [isLoadingPP, setIsLoadingPP] = useState(false);
   
@@ -390,32 +390,32 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
             </div>
           </div>
           
-          {/* Stats section */}
-          <div className="px-6 pb-5 pt-4">
-            <div className="pl-[172px] flex items-end gap-[24px] h-full pb-4">
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{connection.avgOdds.toFixed(2)}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG. ODDS</div>
+          {/* Stats section - centered layout */}
+          <div className="px-6 pb-4 pt-3">
+            <div className="pl-[140px] flex items-center gap-[20px]">
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">Avg Odds</div>
+                <div className="text-[15px] font-bold">{connection.avgOdds.toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{String(connection.apps).padStart(2, '0')}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">APPS</div>
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">Apps</div>
+                <div className="text-[15px] font-bold">{String(connection.apps).padStart(2, '0')}</div>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{connection.avpa30d.toFixed(2)}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">FP1K</div>
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">FP1K</div>
+                <div className="text-[15px] font-bold">{connection.avpa30d.toFixed(2)}</div>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">${connection.salarySum.toLocaleString()}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">SALARY</div>
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">Salary</div>
+                <div className="text-[15px] font-bold">${connection.salarySum.toLocaleString()}</div>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{avgFieldSize.toFixed(0)}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG FIELD</div>
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">Field Sz</div>
+                <div className="text-[15px] font-bold">{avgFieldSize.toFixed(0)}</div>
               </div>
-              <div>
-                <div className="text-[14px] font-semibold leading-[20px]">{furlongsToDistance(avgDistance)}</div>
-                <div className="text-[11px] font-medium leading-[16px] text-white/80">AVG DIST</div>
+              <div className="text-center">
+                <div className="text-[10px] font-medium text-white/70 uppercase mb-0.5">Avg Dist</div>
+                <div className="text-[15px] font-bold">{furlongsToDistance(avgDistance)}</div>
               </div>
             </div>
           </div>
@@ -473,34 +473,20 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
         <div className="overflow-y-auto" style={{ height: '500px' }}>
           {activeTab === "connected" && (
             <div className="overflow-x-auto">
-              {/* Show Full Race Toggle */}
-              <div className="sticky top-0 bg-[var(--surface-1)] z-20 px-5 py-2 border-b border-[var(--content-15)] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] text-[var(--text-secondary)]">
-                    {nonScratchedStarters.length} horse{nonScratchedStarters.length !== 1 ? 's' : ''} in {races.length} race{races.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setShowFullRaces(!showFullRaces)}
-                  className="text-[12px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors"
-                >
-                  {showFullRaces ? 'Hide Full Races' : 'Show Full Races'}
-                </button>
-              </div>
-              
               <table className="w-full">
                 {/* Table Header - Sticky */}
-                <thead className="sticky top-[41px] bg-[var(--surface-1)] border-b border-[var(--content-15)] z-10">
+                <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-20">
                   <tr>
-                    <th colSpan={2} className="border-b border-[var(--content-15)] pb-1 pl-5 pr-2 pt-2 text-left">
-                      <div className="flex items-center">
-                        <div className="flex flex-col gap-2 w-[130px]">
-                          <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
-                        </div>
-                        <div className="flex flex-col flex-1 ml-4">
-                          <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Connections</p>
-                        </div>
+                    <th className="w-[200px] border-b border-[var(--content-15)] pb-2 pl-5 pr-2 pt-3 text-left">
+                      <div className="flex items-center justify-between">
+                        <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
+                        <span className="text-[11px] text-[var(--text-tertiary)] bg-[var(--surface-2)] px-2 py-0.5 rounded">
+                          {nonScratchedStarters.length}H | {races.length}R
+                        </span>
                       </div>
+                    </th>
+                    <th className="border-b border-[var(--content-15)] pb-2 pr-5 pt-3 text-center">
+                      <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Connections</p>
                     </th>
                   </tr>
                 </thead>
@@ -516,31 +502,51 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     const distanceStr = furlongsToDistance(distance);
                     const surface = firstStarter?.surface || 'Dirt';
                     
+                    // Format the selected date
+                    const displayDate = selectedDate 
+                      ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                      : 'Selected Date';
+                    
+                    // Check if this race is expanded
+                    const isExpanded = expandedRaces.has(key);
+                    
                     return (
                       <React.Fragment key={key}>
-                        {/* Race Header with field size and distance */}
+                        {/* Race Header with date, track, race, field info, and expand toggle */}
                         <tr className="bg-[var(--content-15)]">
                           <td colSpan={2} className="px-5 py-1.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
-                                {trackName}, Race {raceNum}
-                              </span>
-                              <div className="flex items-center gap-3 text-[12px] text-[var(--text-secondary)]">
-                                <span>{fieldSize} horses</span>
-                                <span>•</span>
-                                <span>{distanceStr}</span>
-                                <span>•</span>
-                                <span>{surface}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                  {displayDate}, {trackName}, Race {raceNum}
+                                </span>
+                                <span className="text-[var(--text-tertiary)]">|</span>
+                                <span className="text-[12px] text-[var(--text-secondary)]">
+                                  {fieldSize} horses • {distanceStr} • {surface}
+                                </span>
                               </div>
+                              <button
+                                onClick={() => {
+                                  setExpandedRaces(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(key)) next.delete(key);
+                                    else next.add(key);
+                                    return next;
+                                  });
+                                }}
+                                className="text-[11px] font-medium text-[var(--brand)] hover:text-[var(--brand-hover)] transition-colors"
+                              >
+                                {isExpanded ? 'Hide Full Race' : 'View Full Race'}
+                              </button>
                             </div>
                           </td>
                         </tr>
                         
-                        {/* Horse rows - show all horses in race if showFullRaces, else just connection's horses */}
+                        {/* Horse rows - show all horses if expanded, else just connection's horses */}
                         {(() => {
                           const raceKey = `${track}-${raceNum}`;
                           const allRaceStarters = allRacesMap.get(raceKey) || [];
-                          const horsesToShow = showFullRaces ? allRaceStarters : starters;
+                          const horsesToShow = isExpanded ? allRaceStarters : starters;
                           
                           // De-duplicate by horse name
                           const seen = new Set<string>();
@@ -562,7 +568,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                               <tr 
                                 key={`${key}-${idx}`} 
                                 className={`border-b border-[var(--content-15)] ${
-                                  !isConnectionHorse && showFullRaces ? 'opacity-50' : ''
+                                  !isConnectionHorse && isExpanded ? 'opacity-50' : ''
                                 }`}
                               >
                                 {/* Horse Column */}
