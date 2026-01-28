@@ -109,10 +109,11 @@ function convertExcelToJson(trackCode, excelFile) {
         adjProb: Number(row['Adj. Prob.']) || 0,
         // Results
         finish: row['Finish'] || 0,
-        winPayoff: Number(row['Win Payoff']) || 0,
-        placePayoff: Number(row['Place Payoff']) || 0,
-        showPayoff: Number(row['Show Payoff']) || 0,
-        moneyWon: Number(row['Money Won']) || 0,
+        // Payoffs are stored as cents in Excel (520 = $5.20), convert to dollars
+        winPayoff: (Number(row['Win Payoff']) || 0) * 0.01,
+        placePayoff: (Number(row['Place Payoff']) || 0) * 0.01,
+        showPayoff: (Number(row['Show Payoff']) || 0) * 0.01,
+        moneyWon: (Number(row['Money Won']) || 0) * 0.01,
         // Points
         totalPoints: Number(row['Total Points']) || 0,
         pointsWithScrAdj: Number(row['Points W Scr Adj']) || 0,

@@ -32,6 +32,7 @@ export interface HorseEntry {
   newMlOdds?: string;
   newMlOddsDecimal?: number;
   finalOdds?: number;
+  finalOddsDecimal?: number;
   oddsMovement?: number;
   oddsDrift?: number;
   favorite?: boolean;
@@ -43,6 +44,11 @@ export interface HorseEntry {
   finish: number;
   totalPoints: number;
   pointsWithScrAdj?: number;
+  // Payoffs (in dollars)
+  winPayoff?: number;
+  placePayoff?: number;
+  showPayoff?: number;
+  moneyWon?: number;
   // AVPA
   avpa: number;
   raceAvpa?: number;
@@ -787,6 +793,15 @@ export interface ConnectionComprehensiveStats {
       winPct: number;
       avgPoints: number;
     };
+    // Chart data for ML vs Final Odds comparison
+    oddsComparisonChart: {
+      date: string;
+      mlOdds: number;  // Average ML odds for the day
+      finalOdds: number;  // Average final odds for the day
+      horses: number;  // Number of horses that day
+      steamCount: number;  // Steamed horses that day
+      driftCount: number;  // Drifted horses that day
+    }[];
   };
 }
 
@@ -1116,20 +1131,58 @@ export async function getConnectionComprehensiveStats(
   };
   
   // Final odds performance - comparing ML odds to final odds
-  const entriesWithFinalOdds = allEntries.filter(e => e.finalOddsDecimal && e.mlOddsDecimal);
+  // Note: JSON uses `finalOdds` field for the decimal final odds
+  const entriesWithFinalOdds = allEntries.filter(e => e.finalOdds && e.finalOdds > 0 && e.mlOddsDecimal && e.mlOddsDecimal > 0);
   
   const totalMlOdds = entriesWithFinalOdds.reduce((sum, e) => sum + (e.mlOddsDecimal || 0), 0);
-  const totalFinalOdds = entriesWithFinalOdds.reduce((sum, e) => sum + (e.finalOddsDecimal || 0), 0);
+  const totalFinalOdds = entriesWithFinalOdds.reduce((sum, e) => sum + (e.finalOdds || 0), 0);
   const avgMlOdds = entriesWithFinalOdds.length > 0 ? totalMlOdds / entriesWithFinalOdds.length : 0;
   const avgFinalOdds = entriesWithFinalOdds.length > 0 ? totalFinalOdds / entriesWithFinalOdds.length : 0;
   
   // Steam = final odds < ML odds (money came in, odds shortened)
   // Drift = final odds > ML odds (money went away, odds lengthened)
-  const steamEntries = entriesWithFinalOdds.filter(e => (e.finalOddsDecimal || 0) < (e.mlOddsDecimal || 0));
-  const driftEntries = entriesWithFinalOdds.filter(e => (e.finalOddsDecimal || 0) > (e.mlOddsDecimal || 0));
+  const steamEntries = entriesWithFinalOdds.filter(e => (e.finalOdds || 0) < (e.mlOddsDecimal || 0));
+  const driftEntries = entriesWithFinalOdds.filter(e => (e.finalOdds || 0) > (e.mlOddsDecimal || 0));
   
   const steamStats = calculateStats(steamEntries);
   const driftStats = calculateStats(driftEntries);
+  
+  // Build chart data for ML vs Final Odds comparison by date
+  const oddsChartMap = new Map<string, { 
+    mlOddsSum: number; 
+    finalOddsSum: number; 
+    horses: number;
+    steamCount: number;
+    driftCount: number;
+  }>();
+  
+  for (const entry of entriesWithFinalOdds) {
+    const dateKey = entry.date;
+    if (!oddsChartMap.has(dateKey)) {
+      oddsChartMap.set(dateKey, { mlOddsSum: 0, finalOddsSum: 0, horses: 0, steamCount: 0, driftCount: 0 });
+    }
+    const dayData = oddsChartMap.get(dateKey)!;
+    dayData.mlOddsSum += entry.mlOddsDecimal || 0;
+    dayData.finalOddsSum += entry.finalOdds || 0;
+    dayData.horses += 1;
+    if ((entry.finalOdds || 0) < (entry.mlOddsDecimal || 0)) {
+      dayData.steamCount += 1;
+    } else if ((entry.finalOdds || 0) > (entry.mlOddsDecimal || 0)) {
+      dayData.driftCount += 1;
+    }
+  }
+  
+  const oddsComparisonChart = Array.from(oddsChartMap.entries())
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+    .slice(-10) // Last 10 dates
+    .map(([date, data]) => ({
+      date,
+      mlOdds: data.horses > 0 ? data.mlOddsSum / data.horses : 0,
+      finalOdds: data.horses > 0 ? data.finalOddsSum / data.horses : 0,
+      horses: data.horses,
+      steamCount: data.steamCount,
+      driftCount: data.driftCount,
+    }));
   
   const finalOddsStats = {
     avgMlOdds,
@@ -1147,6 +1200,7 @@ export async function getConnectionComprehensiveStats(
       winPct: driftStats.winPct,
       avgPoints: driftStats.avgPoints,
     },
+    oddsComparisonChart,
   };
   
   return {
