@@ -302,27 +302,27 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </div>
         </div>
         
-        {/* Tabs */}
-        <div className="bg-[var(--surface-1)] border-b border-[var(--content-16)] flex items-end px-3 pt-2 h-12 flex-shrink-0">
+        {/* Tabs - Match ConnectionModal styling */}
+        <div className="bg-[var(--surface-1)] border-b border-[var(--content-16)] flex items-end px-5 pt-2 h-12 flex-shrink-0">
           <button
             onClick={() => setActiveTab("connected")}
-            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
               activeTab === "connected"
                 ? "text-[var(--text-primary)]"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
-            <span>Horses</span>
+            <span>Connected Horses</span>
             {activeTab === "connected" && (
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}
           </button>
           <button
             onClick={() => setActiveTab("stats")}
-            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
               activeTab === "stats"
                 ? "text-[var(--text-primary)]"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
             <span>Stats</span>
@@ -332,13 +332,13 @@ export function ComparisonModal({ matchup, isOpen, onClose }: ComparisonModalPro
           </button>
           <button
             onClick={() => setActiveTab("past")}
-            className={`px-2 py-2 font-medium text-[14px] leading-[20px] transition-colors relative flex flex-col items-center ${
+            className={`px-3 py-2 font-medium text-[16px] leading-[24px] transition-colors relative flex flex-col items-center ${
               activeTab === "past"
                 ? "text-[var(--text-primary)]"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             }`}
           >
-            <span>History</span>
+            <span>Past Performance</span>
             {activeTab === "past" && (
               <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[var(--brand)]" />
             )}

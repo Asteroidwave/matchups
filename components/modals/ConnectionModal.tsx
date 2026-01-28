@@ -492,17 +492,19 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     const [track, raceNum] = key.split("-");
                     const trackName = trackFullName[track] || track;
                     
-                    // Get all horses in this race for accurate field size
+                    // Get race key for expanded races lookup
                     const raceKey = `${track}-${raceNum}`;
                     const allHorsesInRace = allRacesMap.get(raceKey) || starters;
-                    const nonScratchedInRace = allHorsesInRace.filter(s => !s.scratched);
-                    const scratchedInRace = allHorsesInRace.filter(s => s.scratched);
                     
-                    // Get race info from first non-scratched starter (or any starter)
-                    const firstStarter = nonScratchedInRace[0] || allHorsesInRace[0];
+                    // Get race info from first starter - use the actual fieldSize from data
+                    const firstStarter = starters[0] || allHorsesInRace[0];
+                    const actualFieldSize = firstStarter?.fieldSize || 8; // From race data
                     const distance = firstStarter?.distance || 6;
                     const distanceStr = furlongsToDistance(distance);
                     const surface = firstStarter?.surface || 'Dirt';
+                    
+                    // Count scratched horses from the connection's starters for this race
+                    const scratchedCount = starters.filter(s => s.scratched).length;
                     
                     // Format the selected date
                     const displayDate = selectedDate 
@@ -512,10 +514,8 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     // Check if this race is expanded
                     const isExpanded = expandedRaces.has(key);
                     
-                    // Build field size display (show scratched count if any)
-                    const fieldDisplay = scratchedInRace.length > 0 
-                      ? `${nonScratchedInRace.length} horses (${scratchedInRace.length} scratched)`
-                      : `${nonScratchedInRace.length} horses`;
+                    // Build field size display using actual race data
+                    const fieldDisplay = `${actualFieldSize} horses`;
                     
                     return (
                       <React.Fragment key={key}>

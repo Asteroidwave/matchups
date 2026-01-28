@@ -594,98 +594,110 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
             </div>
           </div>
           
-          {/* ML vs Final Odds Chart */}
-          {stats.finalOddsStats.oddsComparisonChart && stats.finalOddsStats.oddsComparisonChart.length > 0 && (
-            <div className="mt-4 p-3 bg-[var(--surface-2)] rounded-lg">
-              <div className="text-[12px] font-medium text-[var(--text-primary)] mb-3">ML vs Final Odds Over Time</div>
-              <div className="relative h-[120px]">
-                {/* Chart grid lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                  {[0, 1, 2, 3].map(i => (
-                    <div key={i} className="border-b border-[var(--content-15)] border-dashed" />
-                  ))}
-                </div>
+          {/* ML vs Final Odds Chart - with proper axes */}
+          {stats.finalOddsStats.oddsComparisonChart && stats.finalOddsStats.oddsComparisonChart.length > 0 && (() => {
+            const chartData = stats.finalOddsStats.oddsComparisonChart;
+            const maxOdds = Math.max(...chartData.map(d => Math.max(d.mlOdds, d.finalOdds))) * 1.2 || 10;
+            const yAxisTicks = [0, Math.round(maxOdds * 0.25), Math.round(maxOdds * 0.5), Math.round(maxOdds * 0.75), Math.round(maxOdds)];
+            
+            return (
+              <div className="mt-4 p-3 bg-[var(--surface-2)] rounded-lg">
+                <div className="text-[12px] font-medium text-[var(--text-primary)] mb-3">ML vs Final Odds Over Time</div>
                 
-                {/* Bars */}
-                <div className="relative h-full flex items-end justify-between gap-1 px-1">
-                  {stats.finalOddsStats.oddsComparisonChart.map((day, idx) => {
-                    const maxOdds = Math.max(
-                      ...stats.finalOddsStats.oddsComparisonChart.map(d => Math.max(d.mlOdds, d.finalOdds))
-                    ) * 1.2 || 10;
-                    const mlHeight = (day.mlOdds / maxOdds) * 100;
-                    const finalHeight = (day.finalOdds / maxOdds) * 100;
-                    const isSteam = day.finalOdds < day.mlOdds;
-                    const formattedDate = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { 
-                      month: '2-digit', 
-                      day: '2-digit' 
-                    });
+                <div className="flex">
+                  {/* Y-Axis */}
+                  <div className="flex flex-col justify-between h-[120px] pr-2 text-right">
+                    {yAxisTicks.reverse().map((tick, i) => (
+                      <span key={i} className="text-[9px] text-[var(--text-tertiary)]">{tick}/1</span>
+                    ))}
+                  </div>
+                  
+                  {/* Chart Area */}
+                  <div className="flex-1 relative border-l border-b border-[var(--content-30)]">
+                    {/* Horizontal grid lines */}
+                    <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                      {[0, 1, 2, 3, 4].map(i => (
+                        <div key={i} className="border-t border-[var(--content-15)] border-dashed" style={{ height: '20%' }} />
+                      ))}
+                    </div>
                     
-                    return (
-                      <div key={idx} className="flex-1 flex flex-col items-center group relative">
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity min-w-[120px] pointer-events-none">
-                          <div className="text-[10px] font-medium text-[var(--text-primary)] mb-1">{formattedDate}</div>
-                          <div className="text-[9px] space-y-0.5">
-                            <div className="flex justify-between">
-                              <span className="text-blue-400">ML:</span>
-                              <span>{day.mlOdds.toFixed(1)}/1</span>
+                    {/* Bars */}
+                    <div className="relative h-[120px] flex items-end justify-around px-2">
+                      {chartData.map((day, idx) => {
+                        const mlHeight = (day.mlOdds / maxOdds) * 100;
+                        const finalHeight = (day.finalOdds / maxOdds) * 100;
+                        const isSteam = day.finalOdds < day.mlOdds;
+                        
+                        return (
+                          <div key={idx} className="flex flex-col items-center group relative">
+                            {/* Tooltip */}
+                            <div className={`absolute bottom-full mb-2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded p-2 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity min-w-[110px] pointer-events-none ${idx < 2 ? 'left-0' : idx >= chartData.length - 2 ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+                              <div className="text-[10px] font-medium text-[var(--text-primary)] mb-1">
+                                {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </div>
+                              <div className="text-[9px] space-y-0.5">
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-blue-400">ML:</span>
+                                  <span>{day.mlOdds.toFixed(1)}/1</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className={isSteam ? 'text-green-400' : 'text-orange-400'}>Final:</span>
+                                  <span>{day.finalOdds.toFixed(1)}/1</span>
+                                </div>
+                                <div className="flex justify-between gap-2">
+                                  <span className="text-[var(--text-tertiary)]">Horses:</span>
+                                  <span>{day.horses}</span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-orange-400">Final:</span>
-                              <span>{day.finalOdds.toFixed(1)}/1</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-[var(--text-tertiary)]">Horses:</span>
-                              <span>{day.horses}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className={isSteam ? 'text-green-400' : 'text-red-400'}>
-                                {isSteam ? '↓ Steam' : '↑ Drift'}:
-                              </span>
-                              <span>{isSteam ? day.steamCount : day.driftCount}</span>
+                            
+                            {/* Bar group */}
+                            <div className="flex gap-0.5 items-end h-[120px]">
+                              <div 
+                                className="w-[8px] bg-blue-500 rounded-t-sm transition-all hover:opacity-80"
+                                style={{ height: `${mlHeight}%`, minHeight: '4px' }}
+                              />
+                              <div 
+                                className={`w-[8px] rounded-t-sm transition-all hover:opacity-80 ${isSteam ? 'bg-green-500' : 'bg-orange-500'}`}
+                                style={{ height: `${finalHeight}%`, minHeight: '4px' }}
+                              />
                             </div>
                           </div>
-                        </div>
-                        
-                        {/* Bar group */}
-                        <div className="w-full flex justify-center gap-0.5 h-[100px]">
-                          {/* ML Odds bar */}
-                          <div 
-                            className="w-[6px] bg-blue-500 rounded-t-sm transition-all"
-                            style={{ height: `${mlHeight}%` }}
-                          />
-                          {/* Final Odds bar */}
-                          <div 
-                            className={`w-[6px] rounded-t-sm transition-all ${isSteam ? 'bg-green-500' : 'bg-orange-500'}`}
-                            style={{ height: `${finalHeight}%` }}
-                          />
-                        </div>
-                        
-                        {/* Date label */}
-                        <span className="text-[8px] text-[var(--text-tertiary)] mt-1">{formattedDate}</span>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* X-Axis Labels */}
+                <div className="flex ml-8 mt-1">
+                  <div className="flex-1 flex justify-around px-2">
+                    {chartData.map((day, idx) => (
+                      <span key={idx} className="text-[8px] text-[var(--text-tertiary)]">
+                        {new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-4 mt-3 text-[10px]">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-blue-500 rounded-sm" />
+                    <span className="text-[var(--text-secondary)]">ML Odds</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-green-500 rounded-sm" />
+                    <span className="text-[var(--text-secondary)]">Final (Steam)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-3 bg-orange-500 rounded-sm" />
+                    <span className="text-[var(--text-secondary)]">Final (Drift)</span>
+                  </div>
                 </div>
               </div>
-              
-              {/* Legend */}
-              <div className="flex items-center justify-center gap-4 mt-2 text-[10px]">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-sm" />
-                  <span className="text-[var(--text-tertiary)]">ML Odds</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-sm" />
-                  <span className="text-[var(--text-tertiary)]">Final (Steam)</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-orange-500 rounded-sm" />
-                  <span className="text-[var(--text-tertiary)]">Final (Drift)</span>
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
