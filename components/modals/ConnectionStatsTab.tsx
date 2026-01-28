@@ -64,6 +64,12 @@ function AvpaPerformanceChart({
               day: '2-digit' 
             });
             
+            // Determine tooltip position based on bar index
+            const isLeftEdge = idx <= 1;
+            const isRightEdge = idx >= data.length - 2;
+            const tooltipAlign = isLeftEdge ? 'left-0' : isRightEdge ? 'right-0' : 'left-1/2 -translate-x-1/2';
+            const arrowAlign = isLeftEdge ? 'left-4' : isRightEdge ? 'right-4' : 'left-1/2 -translate-x-1/2';
+            
             return (
               <div 
                 key={`avpa-${item.date}-${idx}`} 
@@ -71,24 +77,24 @@ function AvpaPerformanceChart({
                 onMouseEnter={() => setHoveredIdx(idx)}
                 onMouseLeave={() => setHoveredIdx(null)}
               >
-                {/* Hover tooltip - on top, wider layout */}
+                {/* Hover tooltip - smart positioning */}
                 {hoveredIdx === idx && (
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded-lg p-3 shadow-lg min-w-[180px]">
+                  <div className={`absolute bottom-full mb-2 ${tooltipAlign} z-30 bg-[var(--surface-3)] border border-[var(--content-15)] rounded-lg p-3 shadow-lg min-w-[160px]`}>
                     <div className="text-[12px] font-semibold text-[var(--text-primary)] mb-2 text-center border-b border-[var(--content-15)] pb-2">
                       {new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
                       <span className="text-[var(--text-tertiary)]">Horses</span>
                       <span className="text-[var(--text-primary)] font-medium text-right">{item.races}</span>
-                      <span className="text-[var(--text-tertiary)]">Total Points</span>
+                      <span className="text-[var(--text-tertiary)]">Total Pts</span>
                       <span className="text-[var(--text-primary)] font-semibold text-right">{item.points.toFixed(1)}</span>
-                      <span className="text-[var(--text-tertiary)]">Total Salary</span>
+                      <span className="text-[var(--text-tertiary)]">Salary</span>
                       <span className="text-[var(--text-primary)] font-medium text-right">${item.salary.toLocaleString()}</span>
                       <span className="text-[var(--text-tertiary)]">FP1K</span>
                       <span className={`font-bold text-right ${isAboveAvg ? 'text-orange-400' : 'text-gray-400'}`}>{item.avpa.toFixed(2)}</span>
                     </div>
                     {/* Tooltip arrow pointing down */}
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--surface-3)]" />
+                    <div className={`absolute top-full ${arrowAlign} border-4 border-transparent border-t-[var(--surface-3)]`} />
                   </div>
                 )}
                 
@@ -393,13 +399,20 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
             </span>
           </div>
           
-          {/* FP1K Range Visual */}
+          {/* FP1K Range Visual with Prominent Average */}
           <div className="bg-[var(--surface-1)] rounded p-3 mb-3">
-            <div className="text-[10px] text-[var(--text-tertiary)] mb-2">FP1K Range (based on year average {stats.overallAvgAvpa.toFixed(1)})</div>
+            {/* Prominent Year Average */}
+            <div className="text-center mb-3 pb-3 border-b border-[var(--content-15)]">
+              <div className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Year Average FP1K</div>
+              <div className="text-[28px] font-bold text-orange-400">{stats.overallAvgAvpa.toFixed(1)}</div>
+            </div>
+            
+            {/* Range visualization */}
+            <div className="text-[10px] text-[var(--text-tertiary)] mb-2 text-center">Expected Range (±1 Std Dev)</div>
             <div className="flex items-center justify-between">
               <div className="text-center">
                 <div className="text-[10px] text-red-400 mb-0.5">Low Day</div>
-                <div className="text-[14px] font-bold text-red-400">
+                <div className="text-[16px] font-bold text-red-400">
                   {Math.max(0, stats.overallAvgAvpa - stats.consistencyScore.avpaStdDev).toFixed(1)}
                 </div>
               </div>
@@ -411,7 +424,7 @@ export function ConnectionStatsTab({ connectionName, role, trackCodes }: Connect
               </div>
               <div className="text-center">
                 <div className="text-[10px] text-green-400 mb-0.5">High Day</div>
-                <div className="text-[14px] font-bold text-green-400">
+                <div className="text-[16px] font-bold text-green-400">
                   {(stats.overallAvgAvpa + stats.consistencyScore.avpaStdDev).toFixed(1)}
                 </div>
               </div>

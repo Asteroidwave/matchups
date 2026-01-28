@@ -259,12 +259,10 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
   
   if (!connection) return null;
   
-  // Group starters by track and race for "Connected Horses" tab
+  // Group starters by track and race for "Connected Horses" tab (include scratched)
   const racesMap = new Map<string, Starter[]>();
   
   for (const starter of connection.starters) {
-    if (starter.scratched) continue;
-    
     const key = `${starter.track}-${starter.race}`;
     if (!racesMap.has(key)) {
       racesMap.set(key, []);
@@ -323,11 +321,10 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
   // We need ALL starters from ALL connections to get the correct post positions
   const postPositionsMap = new Map<string, Map<string, number>>();
   
-  // Build all starters array in the EXACT same way as StartersWindow (preserving order)
+  // Build all starters array including scratched horses for full race view
   const allStartersList: Starter[] = [];
   for (const conn of allConnections) {
     for (const starter of conn.starters) {
-      if (starter.scratched) continue;
       allStartersList.push(starter);
     }
   }
@@ -475,13 +472,13 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
             <div className="overflow-x-auto">
               <table className="w-full">
                 {/* Table Header - Sticky */}
-                <thead className="sticky top-0 bg-[var(--surface-1)] border-b border-[var(--content-15)] z-20">
+                <thead className="sticky top-0 bg-[var(--surface-1)] z-20">
                   <tr>
-                    <th className="w-[200px] border-b border-[var(--content-15)] pb-2 pl-5 pr-2 pt-3 text-left">
+                    <th className="border-b border-[var(--content-15)] pb-2 pl-5 pr-2 pt-3 text-left" style={{ width: '200px' }}>
                       <div className="flex items-center justify-between">
                         <p className="font-medium text-[14px] leading-[20px] text-[var(--text-tertiary)]">Horse</p>
                         <span className="text-[11px] text-[var(--text-tertiary)] bg-[var(--surface-2)] px-2 py-0.5 rounded">
-                          {nonScratchedStarters.length}H | {races.length}R
+                          {nonScratchedStarters.length} Horses in {races.length} Races
                         </span>
                       </div>
                     </th>
@@ -495,9 +492,14 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     const [track, raceNum] = key.split("-");
                     const trackName = trackFullName[track] || track;
                     
-                    // Get race info from first starter
-                    const firstStarter = starters[0];
-                    const fieldSize = firstStarter?.fieldSize || 8;
+                    // Get all horses in this race for accurate field size
+                    const raceKey = `${track}-${raceNum}`;
+                    const allHorsesInRace = allRacesMap.get(raceKey) || starters;
+                    const nonScratchedInRace = allHorsesInRace.filter(s => !s.scratched);
+                    const scratchedInRace = allHorsesInRace.filter(s => s.scratched);
+                    
+                    // Get race info from first non-scratched starter (or any starter)
+                    const firstStarter = nonScratchedInRace[0] || allHorsesInRace[0];
                     const distance = firstStarter?.distance || 6;
                     const distanceStr = furlongsToDistance(distance);
                     const surface = firstStarter?.surface || 'Dirt';
@@ -509,6 +511,11 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                     
                     // Check if this race is expanded
                     const isExpanded = expandedRaces.has(key);
+                    
+                    // Build field size display (show scratched count if any)
+                    const fieldDisplay = scratchedInRace.length > 0 
+                      ? `${nonScratchedInRace.length} horses (${scratchedInRace.length} scratched)`
+                      : `${nonScratchedInRace.length} horses`;
                     
                     return (
                       <React.Fragment key={key}>
@@ -522,7 +529,7 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                 </span>
                                 <span className="text-[var(--text-tertiary)]">|</span>
                                 <span className="text-[12px] text-[var(--text-secondary)]">
-                                  {fieldSize} horses • {distanceStr} • {surface}
+                                  {fieldDisplay} • {distanceStr} • {surface}
                                 </span>
                               </div>
                               <button
@@ -563,12 +570,13 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                             
                             // Check if this horse belongs to the current connection
                             const isConnectionHorse = starters.some(s => s.horseName === starter.horseName);
+                            const isScratched = starter.scratched;
                             
                             return (
                               <tr 
                                 key={`${key}-${idx}`} 
                                 className={`border-b border-[var(--content-15)] ${
-                                  !isConnectionHorse && isExpanded ? 'opacity-50' : ''
+                                  isScratched ? 'opacity-40' : (!isConnectionHorse && isExpanded ? 'opacity-50' : '')
                                 }`}
                               >
                                 {/* Horse Column */}
@@ -577,20 +585,21 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     {/* PP and Odds */}
                                     <div className="flex items-center gap-2">
                                       <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[12px] font-semibold leading-[18px] ${
-                                        post ? getPostBadge(post) : "bg-gray-300 text-gray-700"
+                                        isScratched ? "bg-gray-600 text-gray-400" : (post ? getPostBadge(post) : "bg-gray-300 text-gray-700")
                                       }`}>
                                         {post || "—"}
                                       </span>
-                                      <span className="text-[14px] font-medium leading-[20px] text-[var(--text-primary)]">
+                                      <span className={`text-[14px] font-medium leading-[20px] ${isScratched ? 'line-through text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`}>
                                         {starter.mlOddsFrac || "—"}
                                       </span>
                                     </div>
                                     {/* Horse Name */}
                                     <div>
                                       <div className={`text-[14px] font-medium leading-[20px] ${
-                                        isConnectionHorse ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+                                        isScratched ? 'line-through text-[var(--text-tertiary)]' :
+                                        (isConnectionHorse ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]')
                                       }`}>
-                                        {starter.horseName}
+                                        {starter.horseName}{isScratched ? ' (SCR)' : ''}
                                       </div>
                                     </div>
                                   </div>
@@ -601,21 +610,23 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     {/* Top row: Jockey and Trainer */}
                                     <div className="flex border-b border-[var(--content-15)]">
                                       <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
-                                        connection.role === "jockey" && starter.jockey === connection.name ? "bg-blue-500/20" : ""
+                                        !isScratched && connection.role === "jockey" && starter.jockey === connection.name ? "bg-blue-500/20" : ""
                                       }`}>
-                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--jockey)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">J</span>
+                                        <span className={`w-4 h-4 rounded-[4px] ${isScratched ? 'bg-gray-600' : 'bg-[var(--jockey)]'} text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0`}>J</span>
                                         <span className={`text-[14px] font-medium leading-[20px] truncate ${
-                                          connection.role === "jockey" && starter.jockey === connection.name ? "text-blue-400 font-semibold" : "text-[var(--text-primary)]"
+                                          isScratched ? "line-through text-[var(--text-tertiary)]" :
+                                          (connection.role === "jockey" && starter.jockey === connection.name ? "text-blue-400 font-semibold" : "text-[var(--text-primary)]")
                                         }`}>
                                           {starter.jockey || "—"}
                                         </span>
                                       </div>
                                       <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
-                                        connection.role === "trainer" && starter.trainer === connection.name ? "bg-green-500/20" : ""
+                                        !isScratched && connection.role === "trainer" && starter.trainer === connection.name ? "bg-green-500/20" : ""
                                       }`}>
-                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--trainer)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">T</span>
+                                        <span className={`w-4 h-4 rounded-[4px] ${isScratched ? 'bg-gray-600' : 'bg-[var(--trainer)]'} text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0`}>T</span>
                                         <span className={`text-[14px] font-medium leading-[20px] truncate ${
-                                          connection.role === "trainer" && starter.trainer === connection.name ? "text-green-400 font-semibold" : "text-[var(--text-primary)]"
+                                          isScratched ? "line-through text-[var(--text-tertiary)]" :
+                                          (connection.role === "trainer" && starter.trainer === connection.name ? "text-green-400 font-semibold" : "text-[var(--text-primary)]")
                                         }`}>
                                           {starter.trainer || "—"}
                                         </span>
@@ -624,21 +635,23 @@ export function ConnectionModal({ connection, isOpen, onClose }: ConnectionModal
                                     {/* Bottom row: Sire 1 and Sire 2 */}
                                     <div className="flex">
                                       <div className={`flex-1 border-r border-[var(--content-15)] px-3 py-2 flex items-center gap-1.5 ${
-                                        connection.role === "sire" && starter.sire1 === connection.name ? "bg-amber-500/20" : ""
+                                        !isScratched && connection.role === "sire" && starter.sire1 === connection.name ? "bg-amber-500/20" : ""
                                       }`}>
-                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                        <span className={`w-4 h-4 rounded-[4px] ${isScratched ? 'bg-gray-600' : 'bg-[var(--sire)]'} text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0`}>S</span>
                                         <span className={`text-[14px] font-medium leading-[20px] truncate ${
-                                          connection.role === "sire" && starter.sire1 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]"
+                                          isScratched ? "line-through text-[var(--text-tertiary)]" :
+                                          (connection.role === "sire" && starter.sire1 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]")
                                         }`}>
                                           {starter.sire1 || "—"}
                                         </span>
                                       </div>
                                       <div className={`flex-1 px-3 py-2 flex items-center gap-1.5 ${
-                                        connection.role === "sire" && starter.sire2 === connection.name ? "bg-amber-500/20" : ""
+                                        !isScratched && connection.role === "sire" && starter.sire2 === connection.name ? "bg-amber-500/20" : ""
                                       }`}>
-                                        <span className="w-4 h-4 rounded-[4px] bg-[var(--sire)] text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0">S</span>
+                                        <span className={`w-4 h-4 rounded-[4px] ${isScratched ? 'bg-gray-600' : 'bg-[var(--sire)]'} text-white text-[11px] font-semibold leading-[15px] flex items-center justify-center flex-shrink-0`}>S</span>
                                         <span className={`text-[14px] font-medium leading-[20px] truncate ${
-                                          connection.role === "sire" && starter.sire2 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]"
+                                          isScratched ? "line-through text-[var(--text-tertiary)]" :
+                                          (connection.role === "sire" && starter.sire2 === connection.name ? "text-amber-400 font-semibold" : "text-[var(--text-primary)]")
                                         }`}>
                                           {starter.sire2 || "—"}
                                         </span>

@@ -15,6 +15,17 @@ export interface Starter {
   points?: number;
   pos?: number;
   scratched?: boolean;
+  // Race context fields
+  fieldSize?: number;
+  distance?: number;
+  surface?: string;
+  // Final odds and payoff fields
+  finalOdds?: number;
+  winPayoff?: number;
+  placePayoff?: number;
+  showPayoff?: number;
+  moneyWon?: number;
+  newMlOddsDecimal?: number;
 }
 
 export interface PastPerformanceEntry {
